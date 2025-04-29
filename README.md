@@ -28,7 +28,7 @@
 ### 示例代码
 
 ```python
-from AutoWkDriverClient import AutoWK
+from autowk.AutoWkDriverClient import AutoWK
 import time
 
 if __name__ == "__main__":
