@@ -1,5 +1,8 @@
-# WebKit-AutoFramework 自动化浏览器框架
+<p align="center">
+  <img src="icon.png" alt="AutoWK Logo" width="128">
+</p>
 
+## AutoWK 自动化浏览器框架
 > 🚀 一个基于原生 WebKit二次开发的自动化浏览器框架，支持命令行参数控制窗口位置与代理配置，并通过 Python 客户端驱动自动操作浏览器。
 
 ## ✨ 项目亮点
