@@ -14,6 +14,32 @@ class AutoWK(AutoWKBase):
         self.launch_webdriver()
         self.connect()
 
+    def get_all_cookies(self):
+        return self.request("GET", f"/session/{self.session_id}/cookie")["value"]
+
+    def get_cookie_by_name(self, name: str):
+        return self.request("GET", f"/session/{self.session_id}/cookie/{name}")["value"]
+
+    def add_cookie(self, cookie: dict):
+        """
+        cookie = {
+            "name": "foo",
+            "value": "bar",
+            "path": "/",
+            "domain": "localhost",
+            "secure": False,
+            "httpOnly": False,
+            "expiry": 1744070400
+        }
+        """
+        payload = {"cookie": cookie}
+        return self.request("POST", f"/session/{self.session_id}/cookie", payload)
+
+    def delete_cookie(self, name: str):
+        return self.request("DELETE", f"/session/{self.session_id}/cookie/{name}")
+
+    def delete_all_cookies(self):
+        return self.request("DELETE", f"/session/{self.session_id}/cookie")
     def status(self):
         return self.request("GET", "/status")
 
@@ -75,7 +101,11 @@ class AutoWK(AutoWKBase):
         return self.request("POST", f"/session/{self.session_id}/window/new", {"type": window_type})
 
     def execute_script(self, script, args=[]):
-        return self.request("POST", f"/session/{self.session_id}/execute/sync", {"script": script, "args": args})
+        response = self.request("POST", f"/session/{self.session_id}/execute/sync", {
+            "script": script,
+            "args": args
+        })
+        return response["value"]  # 直接返回执行结果
 
     def take_screenshot(self, filename="screenshot.png"):
         data = self.request("GET", f"/session/{self.session_id}/screenshot")["value"]
