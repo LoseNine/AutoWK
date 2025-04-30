@@ -31,7 +31,6 @@ from autowk.AutoWkDriverClient import AutoWK
 import time
 
 if __name__ == "__main__":
-    """自动化1236滑块验证码"""
     client = AutoWK()
     try:
         client.create_session()
@@ -91,6 +90,8 @@ if __name__ == "__main__":
         #拖拽滑块验证码
         btn=client.find_element_by_css_selector("li a.btn.btn-primary").click()
         time.sleep(5)
+        #拖拽滑块验证码，这里用的是拖拽模拟人类行为，所以用的是drag_and_drop_pos_human方法
+        #坐标需要自己定位一下
         client.drag_and_drop_pos_human(525,436,848,436)
         print('拖拽完毕')
 
