@@ -26,6 +26,40 @@
 2. 编写代码，启动自动化：
 
 ### 示例代码
+```python
+过steam的定制5s盾
+
+from autowk.AutoWkDriverClient import AutoWK
+import time
+
+if __name__ == "__main__":
+    """自动化1236滑块验证码"""
+    client = AutoWK()
+    try:
+        client.create_session()
+
+        print("[STATUS]", client.status())
+
+        client.set_timeouts({"pageLoad": 10000})
+        print("[GET TIMEOUTS]", client.get_timeouts())
+        
+        client.navigate(r"https://steamdb.info/")
+        print("[URL]", client.get_current_url())
+
+        time.sleep(10)
+        #坐标直接用操作系统的截图，然后
+        client.click_pos_by_win(266,326)
+        print('拖拽完毕')
+
+
+    except Exception as e:
+        print(e)
+
+    finally:
+        time.sleep(500)
+        client.delete_session()
+        client.close()
+```
 
 ```python
 from autowk.AutoWkDriverClient import AutoWK
