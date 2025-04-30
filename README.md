@@ -11,7 +11,7 @@
 - ✅ 📜 支持命令行传参（窗口位置、尺寸、代理类型、代理认证）
 - ✅ 💪 网络改造，支持 HTTP/SOCKS5 等代理模式
 - ✅ 📏 Python API 调用控制浏览器行为
-- ✅ 🧪 人类行为模拟，底层行为重写。
+- ✅ 🧪 人类行为模拟，底层行为重写，自定义行为动作都是isTrusted。
 ---
 
 
@@ -20,15 +20,13 @@
 1. 安装依赖：
 
    ```bash
-   pip install autowk==0.1.4
+   pip install autowk
    ```
 
 2. 编写代码，启动自动化：
 
-### 示例代码
+### 示例代码 ：过steam的定制5s盾
 ```python
-过steam的定制5s盾
-
 from autowk.AutoWkDriverClient import AutoWK
 import time
 
@@ -47,7 +45,7 @@ if __name__ == "__main__":
         print("[URL]", client.get_current_url())
 
         time.sleep(10)
-        #坐标直接用操作系统的截图，然后
+        #坐标直接用操作系统的截图，然后画板打开看x和y坐标
         client.click_pos_by_win(266,326)
         print('拖拽完毕')
 
@@ -60,7 +58,7 @@ if __name__ == "__main__":
         client.delete_session()
         client.close()
 ```
-
+### 示例代码 ：过12306滑块验证码
 ```python
 from autowk.AutoWkDriverClient import AutoWK
 import time
