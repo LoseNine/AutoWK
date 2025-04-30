@@ -8,3 +8,4 @@ dist/
 bin/*.pdb
 autowk/bin/*.pdb
 *.git
+*.in

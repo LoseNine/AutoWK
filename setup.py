@@ -13,7 +13,10 @@ setup(
     include_package_data=True,
     package_data={
         "autowk": [
-            "autowk/bin/*.*",
+            "autowk/bin/*.exe",
+            "autowk/bin/*.dll",
+            "autowk/bin/testapiScripts/*",
+            "autowk/bin/WebKit.resources/*",
         ],
     },
     install_requires=[
