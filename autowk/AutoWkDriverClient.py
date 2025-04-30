@@ -50,7 +50,8 @@ class AutoWK(AutoWKBase):
         return self.request("POST", f"/session/{self.session_id}/timeouts", timeouts)
 
     def navigate(self, url):
-        return self.request("POST", f"/session/{self.session_id}/url", {"url": url})
+        response=self.request("POST", f"/session/{self.session_id}/url", {"url": url})
+        return response
 
     def get_current_url(self):
         return self.request("GET", f"/session/{self.session_id}/url")["value"]

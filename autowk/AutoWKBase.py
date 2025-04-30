@@ -2,20 +2,15 @@ import http.client
 import subprocess
 import os
 import psutil
-from pathlib import Path
 import json
+import time
 
-def get_webkit_executable_path():
+def get_bin_file_path(filename):
     current_dir = os.path.dirname(os.path.abspath(__file__))
-    exe_path = os.path.join(current_dir, ".", "bin", "MiniBrowser.exe")
+    exe_path = os.path.join(current_dir, ".", "bin", filename)
     exe_path = os.path.abspath(exe_path)
     return exe_path
 
-def get_webdriver_executable_path():
-    current_dir = os.path.dirname(os.path.abspath(__file__))
-    exe_path = os.path.join(current_dir, ".", "bin", "WebDriver.exe")
-    exe_path = os.path.abspath(exe_path)
-    return exe_path
 class AutoWKBase:
     def __init__(self, host, port,webkit_path=None,webdriver_bat=None):
 
@@ -26,8 +21,11 @@ class AutoWKBase:
         self.conn = None
 
         if not webkit_path and not webdriver_bat:
-            self.webkit_path = get_webkit_executable_path()
-            self.webdriver_bat = get_webdriver_executable_path()
+            self.webkit_path = get_bin_file_path("MiniBrowser.exe")
+            self.webdriver_bat = get_bin_file_path("WebDriver.exe")
+
+        #用於關閉引導頁
+        self.closePagefile="file://"+get_bin_file_path("closePage.html")
 
         self.minibrowseraddr = f"{self.host}:{self.port + 1}"
     def launch_webkit(self):
@@ -39,10 +37,12 @@ class AutoWKBase:
             "--x=0",
             "--y=0",
             "--width=10",
-            "--height=10"
+            "--height=10",
+            f"{self.closePagefile}"
         ]
 
         self.webkit_process = subprocess.Popen(args, env=env)
+
 
     def launch_webdriver(self):
         for proc in psutil.process_iter(['name']):
