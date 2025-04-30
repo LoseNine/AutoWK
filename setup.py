@@ -2,7 +2,7 @@ from setuptools import setup, find_packages
 
 setup(
     name="autowk",
-    version="0.1.5",
+    version="0.1.6",
     author="ruyi",
     author_email="losenine@163.com",
     description="基于WebKit的Python自动化浏览器框架",
