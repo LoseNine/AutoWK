@@ -121,6 +121,13 @@ class AutoWK(AutoWKBase):
         result = self.request("POST", f"/session/{self.session_id}/elements", {"using": "css selector", "value": selector})
         return [Element(self, el["element-6066-11e4-a52e-4f735466cecf"]) for el in result["value"]]
 
+    def find_element_by_xpath(self, selector):
+        result = self.request("POST", f"/session/{self.session_id}/element", {"using": "xpath", "value": selector})
+        return Element(self, result["value"]["element-6066-11e4-a52e-4f735466cecf"])
+
+    def find_elements_by_xpath(self, selector):
+        result = self.request("POST", f"/session/{self.session_id}/elements", {"using": "xpath", "value": selector})
+        return [Element(self, el["element-6066-11e4-a52e-4f735466cecf"]) for el in result["value"]]
 
     def click_pos_by_js(self, x, y):
         """已经优化过isTrusted"""

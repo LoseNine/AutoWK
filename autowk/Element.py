@@ -39,6 +39,26 @@ class Element:
         }
         return self.client.request("POST", f"/session/{self.client.session_id}/element/{self.element_id}/value", payload)
 
+    def find_element_by_css(self, selector: str):
+        url = f"/session/{self.client.session_id}/element/{self.element_id}/element"
+        payload = {"using": "css selector", "value": selector}
+        return self.client.request("POST",url, payload)
+
+    def find_elements_by_css(self,selector: str):
+        url = f"/session/{self.client.session_id}/element/{self.element_id}/elements"
+        payload = {"using": "css selector", "value": selector}
+        return self.client.request("POST",url, payload)
+
+    def find_element_by_xpath(self, selector: str):
+        url = f"/session/{self.client.session_id}/element/{self.element_id}/element"
+        payload = {"using": "xpath", "value": selector}
+        return self.client.request("POST",url, payload)
+
+    def find_elements_by_xpath(self,selector: str):
+        url = f"/session/{self.client.session_id}/element/{self.element_id}/elements"
+        payload = {"using": "xpath", "value": selector}
+        return self.client.request("POST",url, payload)
+
     def drag_element_by_offset_line(self, offset_x, offset_y):
         payload = {
             "actions": [
@@ -150,3 +170,6 @@ class Element:
 
         return self.client.request("POST", f"/session/{self.client.session_id}/actions", payload)
 
+    def __str__(self):
+        str_=f"[Element] {self.client}"
+        return str_
