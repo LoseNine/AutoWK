@@ -20,7 +20,7 @@
 1. 安装依赖：
 
    ```bash
-   pip install autowk==0.1.8
+   pip install autowk==0.1.9
    ```
 
 2. 编写代码，启动自动化：
