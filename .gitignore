@@ -1,0 +1,11 @@
+# 忽略编译产生的文件
+__pycache__/
+*.pyc
+*.pyo
+build/
+dist/
+*.egg-info/
+bin/*.pdb
+autowk/bin/*.pdb
+*.git
+*.in
