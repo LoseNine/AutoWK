@@ -1,14 +1,11 @@
 # AutoWK 自动化浏览器框架
 
-AutoWK 是一个面向 Windows 的 WebKit 自动化浏览器框架。包内自带当前编译出的
-`MiniBrowser.exe`、`WebDriver.exe` 和运行所需 DLL，通过 Python API 启动浏览器并执行
-WebDriver 风格的页面自动化操作。
+AutoWK 是一个面向 Windows 的 WebKit 自动化浏览器框架，基于真实 Safari 指纹浏览器内核。
 
 当前发布版本：`0.4.3`
 
 ## 项目亮点
 
-- 基于 WebKit / MiniBrowser 运行时，安装包内置浏览器与 WebDriver。
 - Python API 控制导航、元素查找、输入、点击、脚本执行、窗口、Cookie、iframe 和截图。
 - 支持页面截图和元素截图。
 - 支持 open shadow root；当前 MiniBrowser 也提供 closed shadow root 访问能力。
@@ -27,8 +24,7 @@ WebDriver 风格的页面自动化操作。
 pip install autowk==0.4.3
 ```
 
-AutoWK 当前只面向 64 位 Windows。wheel 内含 Windows 原生可执行文件和 DLL，不适用于
-Linux 或 macOS。
+AutoWK 当前只面向 64 位 Windows，不适用于 Linux 或 macOS。
 
 ## 快速开始
 
@@ -69,8 +65,7 @@ autowk doctor
 autowk paths
 ```
 
-`autowk doctor` 会检查内置 `MiniBrowser.exe`、`WebDriver.exe` 是否存在，以及默认本地端口是否可用。
-它不会启动浏览器。
+`autowk doctor` 会检查基础运行环境和默认本地端口是否可用。它不会启动浏览器。
 
 ## examples 示例
 
