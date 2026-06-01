@@ -30,8 +30,6 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-// FIXME: DOMManager lacks advanced multi-target support. (DOMNodes per-target)
-
 WI.DOMManager = class DOMManager extends WI.Object
 {
     constructor()
@@ -51,6 +49,10 @@ WI.DOMManager = class DOMManager extends WI.Object
         this._hasRequestedDocument = false;
         this._pendingDocumentRequestCallbacks = null;
 
+        this._frameTargetDOMData = new Map;
+        this._unsplicedFrameDocuments = [];
+        this._pageBodyChildrenRequested = false;
+
         WI.EventBreakpoint.addEventListener(WI.Breakpoint.Event.DisabledStateDidChange, this._handleEventBreakpointDisabledStateChanged, this);
         WI.EventBreakpoint.addEventListener(WI.Breakpoint.Event.ConditionDidChange, this._handleEventBreakpointEditablePropertyChanged, this);
         WI.EventBreakpoint.addEventListener(WI.Breakpoint.Event.IgnoreCountDidChange, this._handleEventBreakpointEditablePropertyChanged, this);
@@ -58,25 +60,254 @@ WI.DOMManager = class DOMManager extends WI.Object
         WI.EventBreakpoint.addEventListener(WI.Breakpoint.Event.ActionsDidChange, this._handleEventBreakpointActionsChanged, this);
 
         WI.Frame.addEventListener(WI.Frame.Event.MainResourceDidChange, this._mainResourceDidChange, this);
+        WI.targetManager.addEventListener(WI.TargetManager.Event.TargetRemoved, this._handleTargetRemoved, this);
     }
 
     // Target
 
     initializeTarget(target)
     {
-        // FIXME: This should be improved when adding better DOM multi-target support since it is really per-target.
+        if (!target.hasDomain("DOM"))
+            return;
+
+        if (target instanceof WI.FrameTarget) {
+            this._initializeFrameTarget(target);
+            return;
+        }
+
         // This currently uses a setTimeout since it doesn't need to happen immediately, and DOMManager uses the
         // global DOMAgent to request the document, so we want to make sure we've transitioned the global agents
         // to this target if necessary.
-        if (target.hasDomain("DOM")) {
-            setTimeout(() => {
-                this.ensureDocument();
-            });
+        setTimeout(() => {
+            this.ensureDocument();
+        });
 
-            if (WI.engineeringSettingsAllowed()) {
-                if (DOMManager.supportsEditingUserAgentShadowTrees({target}))
-                    target.DOMAgent.setAllowEditingUserAgentShadowTrees(WI.settings.engineeringAllowEditingUserAgentShadowTrees.value);
+        if (WI.engineeringSettingsAllowed()) {
+            if (DOMManager.supportsEditingUserAgentShadowTrees({target}))
+                target.DOMAgent.setAllowEditingUserAgentShadowTrees(WI.settings.engineeringAllowEditingUserAgentShadowTrees.value);
+        }
+    }
+
+    _initializeFrameTarget(target)
+    {
+        console.assert(target instanceof WI.FrameTarget);
+
+        let data = {document: null, target: target};
+        this._frameTargetDOMData.set(target, data);
+
+        target.DOMAgent.getDocument((error, root) => {
+            if (error) {
+                console.warn("FrameDOMAgent.getDocument failed:", error);
+                return;
             }
+
+            let doc = new WI.DOMNode(this, null, false, root, {frameTarget: target});
+
+            data.document = doc;
+
+            // Splice the frame document into the page DOM tree as the
+            // contentDocument of the matching iframe element.
+            this._spliceFrameDocumentIntoPageTree(doc);
+
+            this.dispatchEventToListeners(WI.DOMManager.Event.FrameDocumentAvailable, {target, document: doc});
+        });
+    }
+
+    _spliceFrameDocumentIntoPageTree(frameDocument)
+    {
+        if (!frameDocument || !frameDocument.documentURL)
+            return;
+
+        if (this._trySpliceFrameDocumentIntoNode(frameDocument))
+            return;
+
+        this._unsplicedFrameDocuments.push(frameDocument);
+
+        this._ensurePageBodyChildrenLoaded();
+    }
+
+    _ensurePageBodyChildrenLoaded()
+    {
+        if (this._pageBodyChildrenRequested)
+            return;
+
+        // The page document may not be loaded yet (getDocument is deferred).
+        // Request body's children so iframe elements enter _idToDOMNode.
+        this.requestDocument((document) => {
+            if (!document)
+                return;
+
+            let body = document.body;
+            if (!body) {
+                // Need <html> children first to get <body>.
+                let docElement = document.documentElement;
+                if (!docElement)
+                    return;
+                docElement.getChildNodes(() => {
+                    body = document.body;
+                    if (body)
+                        body.getChildNodes(() => this._trySpliceUnsplicedFrameDocuments());
+                });
+                return;
+            }
+
+            if (body.children) {
+                this._trySpliceUnsplicedFrameDocuments();
+                return;
+            }
+
+            body.getChildNodes(() => this._trySpliceUnsplicedFrameDocuments());
+        });
+
+        this._pageBodyChildrenRequested = true;
+    }
+
+    // FIXME: <https://webkit.org/b/298980> URL-based matching is fragile (breaks with redirects,
+    // blob: URLs, about:srcdoc, query strings). Use frame identity information (frame ID or target ID)
+    // threaded through Target.targetCreated to directly look up the parent iframe element.
+    _trySpliceFrameDocumentIntoNode(frameDocument)
+    {
+        let frameDocURL = frameDocument.documentURL;
+
+        for (let node of Object.values(this._idToDOMNode)) {
+            if (node._destroyed)
+                continue;
+
+            let nodeName = node._nodeName;
+            if (nodeName !== "IFRAME" && nodeName !== "FRAME")
+                continue;
+
+            if (node._contentDocument)
+                continue;
+
+            let srcAttr = node.getAttribute("src");
+            if (!srcAttr)
+                continue;
+
+            // Match by URL: exact match, then resolve relative src against parent document.
+            let matched = false;
+            if (srcAttr === frameDocURL)
+                matched = true;
+            else {
+                try {
+                    let srcURL = new URL(srcAttr, node.ownerDocument ? node.ownerDocument.documentURL : undefined);
+                    let docURL = new URL(frameDocURL);
+                    if (srcURL.href === docURL.href)
+                        matched = true;
+                } catch (e) {
+                }
+            }
+
+            if (matched) {
+                node._contentDocument = frameDocument;
+                frameDocument.parentNode = node;
+                node._children = [frameDocument];
+                node._renumber();
+
+                this.dispatchEventToListeners(WI.DOMManager.Event.ChildNodeCountUpdated, node);
+                this.dispatchEventToListeners(WI.DOMManager.Event.NodeInserted, {node: frameDocument, parent: node});
+                return true;
+            }
+        }
+        return false;
+    }
+
+    _trySpliceUnsplicedFrameDocuments()
+    {
+        if (!this._unsplicedFrameDocuments.length)
+            return;
+
+        this._unsplicedFrameDocuments = this._unsplicedFrameDocuments.filter((doc) => {
+            if (doc._destroyed)
+                return false;
+            return !this._trySpliceFrameDocumentIntoNode(doc);
+        });
+    }
+
+    _handleTargetRemoved(event)
+    {
+        let {target} = event.data;
+        if (target instanceof WI.FrameTarget)
+            this._cleanupFrameTarget(target);
+    }
+
+    _cleanupFrameTarget(target)
+    {
+        let data = this._frameTargetDOMData.get(target);
+        if (!data)
+            return;
+
+        let frameDocument = data.document;
+        if (frameDocument && frameDocument.parentNode) {
+            let iframeElement = frameDocument.parentNode;
+            iframeElement._contentDocument = null;
+            if (iframeElement._children && iframeElement._children.includes(frameDocument))
+                iframeElement._children = iframeElement._children.filter((child) => child !== frameDocument);
+            frameDocument.parentNode = null;
+            this.dispatchEventToListeners(WI.DOMManager.Event.NodeRemoved, {node: frameDocument, parent: iframeElement});
+        }
+
+        this._unsplicedFrameDocuments = this._unsplicedFrameDocuments.filter((doc) => doc !== frameDocument);
+
+        let prefix = target.identifier + ":";
+        for (let id of Object.keys(this._idToDOMNode)) {
+            if (typeof id === "string" && id.startsWith(prefix)) {
+                this._idToDOMNode[id].markDestroyed();
+                delete this._idToDOMNode[id];
+            }
+        }
+
+        this._frameTargetDOMData.delete(target);
+    }
+
+    frameTargetDocumentForTarget(target)
+    {
+        let data = this._frameTargetDOMData.get(target);
+        return data ? data.document : null;
+    }
+
+    nodeForIdInFrameTarget(nodeId, target)
+    {
+        let scopedId = target.identifier + ":" + nodeId;
+        return this._idToDOMNode[scopedId] || null;
+    }
+
+    _frameTargetSetChildNodes(target, parentId, payloads)
+    {
+        if (!parentId && payloads.length)
+            return; // Detached root — not applicable for frame targets.
+
+        let scopedParentId = target.identifier + ":" + parentId;
+        let parent = this._idToDOMNode[scopedParentId];
+        if (!parent)
+            return;
+
+        parent._setChildrenPayload(payloads);
+    }
+
+    _frameTargetDocumentUpdated(target)
+    {
+        this._cleanupFrameTarget(target);
+        this._initializeFrameTarget(target);
+    }
+
+    _frameTargetUnbind(node)
+    {
+        node.markDestroyed();
+        delete this._idToDOMNode[node.id];
+
+        if (node.children) {
+            for (let child of node.children)
+                this._frameTargetUnbind(child);
+        }
+        let templateContent = node.templateContent();
+        if (templateContent)
+            this._frameTargetUnbind(templateContent);
+        for (let pseudoElement of node.pseudoElements().values())
+            this._frameTargetUnbind(pseudoElement);
+        if (node._shadowRoots) {
+            for (let shadowRoot of node._shadowRoots)
+                this._frameTargetUnbind(shadowRoot);
         }
     }
 
@@ -115,6 +346,7 @@ WI.DOMManager = class DOMManager extends WI.Object
                 showExtendedGridLines: WI.settings.gridOverlayShowExtendedGridLines.value,
                 showTrackSizes: WI.settings.gridOverlayShowTrackSizes.value,
                 showAreaNames: WI.settings.gridOverlayShowAreaNames.value,
+                showOrderNumbers: WI.settings.gridOverlayShowOrderNumbers.value,
             };
         }
 
@@ -449,10 +681,14 @@ WI.DOMManager = class DOMManager extends WI.Object
 
     _setDocument(payload)
     {
-        for (let node of Object.values(this._idToDOMNode))
+        for (let [id, node] of Object.entries(this._idToDOMNode)) {
+            if (id.includes(":"))
+                continue;
             node.markDestroyed();
+            delete this._idToDOMNode[id];
+        }
 
-        this._idToDOMNode = {};
+        this._pageBodyChildrenRequested = false;
 
         for (let breakpoint of this._breakpointsForEventListeners.values())
             WI.domDebuggerManager.dispatchEventToListeners(WI.DOMDebuggerManager.Event.EventBreakpointRemoved, {breakpoint});
@@ -489,6 +725,8 @@ WI.DOMManager = class DOMManager extends WI.Object
         }
 
         var parent = this._idToDOMNode[parentId];
+        if (!parent)
+            return;
 
         if (parent.children) {
             for (let node of parent.children)
@@ -499,11 +737,16 @@ WI.DOMManager = class DOMManager extends WI.Object
 
         for (let node of parent.children)
             this.dispatchEventToListeners(WI.DOMManager.Event.NodeInserted, {node, parent});
+
+        // New iframe elements may have been loaded — try to splice pending frame documents.
+        this._trySpliceUnsplicedFrameDocuments();
     }
 
     _childNodeCountUpdated(nodeId, newValue)
     {
         var node = this._idToDOMNode[nodeId];
+        if (!node)
+            return;
         node.childNodeCount = newValue;
         this.dispatchEventToListeners(WI.DOMManager.Event.ChildNodeCountUpdated, node);
     }
@@ -511,16 +754,23 @@ WI.DOMManager = class DOMManager extends WI.Object
     _childNodeInserted(parentId, prevId, payload)
     {
         var parent = this._idToDOMNode[parentId];
+        if (!parent)
+            return;
         var prev = this._idToDOMNode[prevId];
         var node = parent._insertChild(prev, payload);
         this._idToDOMNode[node.id] = node;
         this.dispatchEventToListeners(WI.DOMManager.Event.NodeInserted, {node, parent});
+
+        // A new iframe element may have been inserted — try to splice pending frame documents.
+        this._trySpliceUnsplicedFrameDocuments();
     }
 
     _childNodeRemoved(parentId, nodeId)
     {
         var parent = this._idToDOMNode[parentId];
         var node = this._idToDOMNode[nodeId];
+        if (!parent || !node)
+            return;
         parent._removeChild(node);
         this._unbind(node);
         this.dispatchEventToListeners(WI.DOMManager.Event.NodeRemoved, {node, parent});
@@ -682,6 +932,8 @@ WI.DOMManager = class DOMManager extends WI.Object
     hideDOMNodeHighlight()
     {
         for (let target of WI.targets) {
+            if (target instanceof WI.FrameTarget)
+                continue;
             if (target.hasCommand("DOM.hideHighlight"))
                 target.DOMAgent.hideHighlight();
         }
@@ -780,6 +1032,8 @@ WI.DOMManager = class DOMManager extends WI.Object
         this._breakpointsForEventListeners.set(eventListener.eventListenerId, breakpoint);
 
         for (let target of WI.targets) {
+            if (target instanceof WI.FrameTarget)
+                continue;
             if (target.hasDomain("DOM"))
                 this._setEventBreakpoint(breakpoint, target);
         }
@@ -853,6 +1107,8 @@ WI.DOMManager = class DOMManager extends WI.Object
             return;
 
         for (let target of WI.targets) {
+            if (target instanceof WI.FrameTarget)
+                continue;
             if (!target.hasDomain("DOM"))
                 continue;
 
@@ -875,6 +1131,10 @@ WI.DOMManager = class DOMManager extends WI.Object
             return;
 
         for (let target of WI.targets) {
+            // FIXME: <https://webkit.org/b/298980> Add DOM support for FrameTarget.
+            if (target instanceof WI.FrameTarget)
+                continue;
+
             // Clear the old breakpoint from the backend before setting the new one.
             this._removeEventBreakpoint(breakpoint, target);
             this._setEventBreakpoint(breakpoint, target);
@@ -918,5 +1178,6 @@ WI.DOMManager.Event = {
     ChildNodeCountUpdated: "dom-manager-child-node-count-updated",
     DOMNodeWasInspected: "dom-manager-dom-node-was-inspected",
     InspectModeStateChanged: "dom-manager-inspect-mode-state-changed",
+    FrameDocumentAvailable: "dom-manager-frame-document-available",
     InspectedNodeChanged: "dom-manager-inspected-node-changed",
 };

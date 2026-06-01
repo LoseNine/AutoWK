@@ -32,7 +32,7 @@
 
 WI.DOMNode = class DOMNode extends WI.Object
 {
-    constructor(domManager, doc, isInShadowTree, payload)
+    constructor(domManager, doc, isInShadowTree, payload, {frameTarget} = {})
     {
         super();
 
@@ -40,8 +40,16 @@ WI.DOMNode = class DOMNode extends WI.Object
 
         this._domManager = domManager;
         this._isInShadowTree = isInShadowTree;
+        this._owningTarget = null;
+        this._rawNodeId = null;
 
-        this.id = payload.nodeId;
+        if (frameTarget) {
+            this._rawNodeId = payload.nodeId;
+            this.id = frameTarget.identifier + ":" + payload.nodeId;
+            this._owningTarget = frameTarget;
+        } else
+            this.id = payload.nodeId;
+
         this._domManager._idToDOMNode[this.id] = this;
 
         this._nodeType = payload.nodeType;
@@ -56,6 +64,13 @@ WI.DOMNode = class DOMNode extends WI.Object
         this._layoutFlags = [];
         this._layoutOverlayShowing = false;
         this._layoutOverlayColorSetting = null;
+
+        // FIXME: <https://webkit.org/b/298980> Workaround for missing FrameCSSAgent.
+        // Without this, CSS.nodeLayoutFlagsChanged is never sent for frame-target nodes,
+        // so the Elements panel hides them as "not rendered." Force Rendered until
+        // FrameCSSAgent exists to provide real layout flags.
+        if (this._owningTarget && payload.nodeType === Node.ELEMENT_NODE)
+            this._layoutFlags = [WI.DOMNode.LayoutFlag.Rendered];
 
         if (this._nodeType === Node.DOCUMENT_NODE)
             this.ownerDocument = this;
@@ -90,9 +105,10 @@ WI.DOMNode = class DOMNode extends WI.Object
         // we have both shadowRoots and child nodes.
         this._shadowRoots = [];
         if (payload.shadowRoots) {
+            let childOptions = this._owningTarget ? {frameTarget: this._owningTarget} : undefined;
             for (var i = 0; i < payload.shadowRoots.length; ++i) {
                 var root = payload.shadowRoots[i];
-                var node = new WI.DOMNode(this._domManager, this.ownerDocument, true, root);
+                var node = new WI.DOMNode(this._domManager, this.ownerDocument, true, root, childOptions);
                 node.parentNode = this;
                 this._shadowRoots.push(node);
             }
@@ -109,21 +125,24 @@ WI.DOMNode = class DOMNode extends WI.Object
             this._customElementState = null;
 
         if (payload.templateContent) {
-            this._templateContent = new WI.DOMNode(this._domManager, this.ownerDocument, false, payload.templateContent);
+            let childOptions = this._owningTarget ? {frameTarget: this._owningTarget} : undefined;
+            this._templateContent = new WI.DOMNode(this._domManager, this.ownerDocument, false, payload.templateContent, childOptions);
             this._templateContent.parentNode = this;
         }
 
         this._pseudoElements = new Map;
         if (payload.pseudoElements) {
+            let childOptions = this._owningTarget ? {frameTarget: this._owningTarget} : undefined;
             for (var i = 0; i < payload.pseudoElements.length; ++i) {
-                var node = new WI.DOMNode(this._domManager, this.ownerDocument, this._isInShadowTree, payload.pseudoElements[i]);
+                var node = new WI.DOMNode(this._domManager, this.ownerDocument, this._isInShadowTree, payload.pseudoElements[i], childOptions);
                 node.parentNode = this;
                 this._pseudoElements.set(node.pseudoType(), node);
             }
         }
 
         if (payload.contentDocument) {
-            this._contentDocument = new WI.DOMNode(this._domManager, null, false, payload.contentDocument);
+            let childOptions = this._owningTarget ? {frameTarget: this._owningTarget} : undefined;
+            this._contentDocument = new WI.DOMNode(this._domManager, null, false, payload.contentDocument, childOptions);
             this._children = [this._contentDocument];
             this._renumber();
         }
@@ -154,13 +173,17 @@ WI.DOMNode = class DOMNode extends WI.Object
             WI.DOMNode.addEventListener(WI.DOMNode.Event.DidFireEvent, this._handleDOMNodeDidFireEvent, this);
 
         // COMPATIBILITY (macOS 13.0, iOS 16.0): CSS.LayoutContextType was renamed/expanded to CSS.LayoutFlag.
-        if (!InspectorBackend.Enum.CSS.LayoutFlag) {
-            let layoutFlags = [WI.DOMNode.LayoutFlag.Rendered];
-            if (payload.layoutContextType)
-                layoutFlags.push(payload.layoutContextType);
-            this.layoutFlags = layoutFlags;
-        } else
-            this.layoutFlags = payload.layoutFlags;
+        // Frame-target nodes don't receive layout flags from the backend (no FrameCSSAgent yet).
+        // Their flags were already set above in the constructor workaround — don't overwrite them.
+        if (!frameTarget) {
+            if (!InspectorBackend.Enum.CSS.LayoutFlag) {
+                let layoutFlags = [WI.DOMNode.LayoutFlag.Rendered];
+                if (payload.layoutContextType)
+                    layoutFlags.push(payload.layoutContextType);
+                this.layoutFlags = layoutFlags;
+            } else
+                this.layoutFlags = payload.layoutFlags;
+        }
     }
 
     // Static
@@ -210,6 +233,8 @@ WI.DOMNode = class DOMNode extends WI.Object
 
     get destroyed() { return this._destroyed; }
     get frame() { return this._frame; }
+    get owningTarget() { return this._owningTarget || this.parentNode?.owningTarget || null; }
+    get backendNodeId() { return this._rawNodeId ?? this.id; }
     get nextSibling() { return this._nextSibling; }
     get previousSibling() { return this._previousSibling; }
     get children() { return this._children; }
@@ -286,6 +311,7 @@ WI.DOMNode = class DOMNode extends WI.Object
             return;
 
         // The overlay is automatically hidden on the backend when the context type changes.
+        this._layoutOverlayShowing = false;
         this.dispatchEventToListeners(WI.DOMNode.Event.LayoutOverlayHidden);
 
         switch (oldLayoutContextType) {
@@ -294,11 +320,14 @@ WI.DOMNode = class DOMNode extends WI.Object
             break;
 
         case WI.DOMNode.LayoutFlag.Grid:
+        case WI.DOMNode.LayoutFlag.Subgrid:
+        case WI.DOMNode.LayoutFlag.GridLanes:
             WI.settings.gridOverlayShowExtendedGridLines.removeEventListener(WI.Setting.Event.Changed, this._handleLayoutOverlaySettingChanged, this);
             WI.settings.gridOverlayShowLineNames.removeEventListener(WI.Setting.Event.Changed, this._handleLayoutOverlaySettingChanged, this);
             WI.settings.gridOverlayShowLineNumbers.removeEventListener(WI.Setting.Event.Changed, this._handleLayoutOverlaySettingChanged, this);
             WI.settings.gridOverlayShowTrackSizes.removeEventListener(WI.Setting.Event.Changed, this._handleLayoutOverlaySettingChanged, this);
             WI.settings.gridOverlayShowAreaNames.removeEventListener(WI.Setting.Event.Changed, this._handleLayoutOverlaySettingChanged, this);
+            WI.settings.gridOverlayShowOrderNumbers.removeEventListener(WI.Setting.Event.Changed, this._handleLayoutOverlaySettingChanged, this);
             break;
         }
     }
@@ -622,6 +651,10 @@ WI.DOMNode = class DOMNode extends WI.Object
         if (this._destroyed)
             return;
 
+        // FIXME: <https://webkit.org/b/298980> Highlighting cross-origin frame nodes requires page-level coordination.
+        if (this.owningTarget)
+            return;
+
         if (this._hideDOMNodeHighlightTimeout) {
             clearTimeout(this._hideDOMNodeHighlightTimeout);
             this._hideDOMNodeHighlightTimeout = undefined;
@@ -651,6 +684,8 @@ WI.DOMNode = class DOMNode extends WI.Object
 
         switch (this.layoutContextType) {
         case WI.DOMNode.LayoutFlag.Grid:
+        case WI.DOMNode.LayoutFlag.Subgrid:
+        case WI.DOMNode.LayoutFlag.GridLanes:
             agentCommandArguments.gridOverlayConfig = {
                 gridColor: color.toProtocol(),
                 showLineNames: WI.settings.gridOverlayShowLineNames.value,
@@ -658,6 +693,7 @@ WI.DOMNode = class DOMNode extends WI.Object
                 showExtendedGridLines: WI.settings.gridOverlayShowExtendedGridLines.value,
                 showTrackSizes: WI.settings.gridOverlayShowTrackSizes.value,
                 showAreaNames: WI.settings.gridOverlayShowAreaNames.value,
+                showOrderNumbers: WI.settings.gridOverlayShowOrderNumbers.value,
             };
 
             // COMPATIBILITY (macOS 13.3, iOS 16.4): DOM.GridOverlayConfig did not exist yet.
@@ -674,6 +710,7 @@ WI.DOMNode = class DOMNode extends WI.Object
                 WI.settings.gridOverlayShowLineNumbers.addEventListener(WI.Setting.Event.Changed, this._handleLayoutOverlaySettingChanged, this);
                 WI.settings.gridOverlayShowTrackSizes.addEventListener(WI.Setting.Event.Changed, this._handleLayoutOverlaySettingChanged, this);
                 WI.settings.gridOverlayShowAreaNames.addEventListener(WI.Setting.Event.Changed, this._handleLayoutOverlaySettingChanged, this);
+                WI.settings.gridOverlayShowOrderNumbers.addEventListener(WI.Setting.Event.Changed, this._handleLayoutOverlaySettingChanged, this);
             }
             break;
 
@@ -718,11 +755,14 @@ WI.DOMNode = class DOMNode extends WI.Object
 
         switch (this.layoutContextType) {
         case WI.DOMNode.LayoutFlag.Grid:
+        case WI.DOMNode.LayoutFlag.Subgrid:
+        case WI.DOMNode.LayoutFlag.GridLanes:
             WI.settings.gridOverlayShowExtendedGridLines.removeEventListener(WI.Setting.Event.Changed, this._handleLayoutOverlaySettingChanged, this);
             WI.settings.gridOverlayShowLineNames.removeEventListener(WI.Setting.Event.Changed, this._handleLayoutOverlaySettingChanged, this);
             WI.settings.gridOverlayShowLineNumbers.removeEventListener(WI.Setting.Event.Changed, this._handleLayoutOverlaySettingChanged, this);
             WI.settings.gridOverlayShowTrackSizes.removeEventListener(WI.Setting.Event.Changed, this._handleLayoutOverlaySettingChanged, this);
             WI.settings.gridOverlayShowAreaNames.removeEventListener(WI.Setting.Event.Changed, this._handleLayoutOverlaySettingChanged, this);
+            WI.settings.gridOverlayShowOrderNumbers.removeEventListener(WI.Setting.Event.Changed, this._handleLayoutOverlaySettingChanged, this);
 
             agentCommandFunction = target.DOMAgent.hideGridOverlay;
             break;
@@ -790,8 +830,8 @@ WI.DOMNode = class DOMNode extends WI.Object
                 callback(this.children);
         }
 
-        let target = WI.assumingMainTarget();
-        target.DOMAgent.requestChildNodes(this.id, mycallback.bind(this));
+        let target = this.owningTarget || WI.assumingMainTarget();
+        target.DOMAgent.requestChildNodes(this.backendNodeId, mycallback.bind(this));
     }
 
     getSubtree(depth, callback)
@@ -807,25 +847,31 @@ WI.DOMNode = class DOMNode extends WI.Object
                 callback(error ? null : this.children);
         }
 
-        let target = WI.assumingMainTarget();
-        target.DOMAgent.requestChildNodes(this.id, depth, mycallback.bind(this));
+        let target = this.owningTarget || WI.assumingMainTarget();
+        target.DOMAgent.requestChildNodes(this.backendNodeId, depth, mycallback.bind(this));
     }
 
     async requestAssignedSlot()
     {
-        let target = WI.assumingMainTarget();
-        let {slotElementId} = await target.DOMAgent.requestAssignedSlot(this.id);
+        let target = this.owningTarget || WI.assumingMainTarget();
+        let {slotElementId} = await target.DOMAgent.requestAssignedSlot(this.backendNodeId);
+        if (!slotElementId)
+            return null;
+        if (this.owningTarget)
+            return WI.domManager.nodeForIdInFrameTarget(slotElementId, this.owningTarget);
         return WI.domManager.nodeForId(slotElementId);
     }
 
     async requestAssignedNodes()
     {
-        let target = WI.assumingMainTarget();
-        let {assignedNodeIds} = await target.DOMAgent.requestAssignedNodes(this.id);
+        let target = this.owningTarget || WI.assumingMainTarget();
+        let {assignedNodeIds} = await target.DOMAgent.requestAssignedNodes(this.backendNodeId);
 
         let assignedNodes = [];
         for (let assignedNodeId of assignedNodeIds) {
-            let assignedNode = WI.domManager.nodeForId(assignedNodeId);
+            let assignedNode = this.owningTarget
+                ? WI.domManager.nodeForIdInFrameTarget(assignedNodeId, this.owningTarget)
+                : WI.domManager.nodeForId(assignedNodeId);
             console.assert(assignedNode, this, assignedNodeId);
             if (assignedNode)
                 assignedNodes.push(assignedNode);
@@ -1129,7 +1175,8 @@ WI.DOMNode = class DOMNode extends WI.Object
 
     _insertChild(prev, payload)
     {
-        var node = new WI.DOMNode(this._domManager, this.ownerDocument, this._isInShadowTree, payload);
+        let childOptions = this._owningTarget ? {frameTarget: this._owningTarget} : undefined;
+        var node = new WI.DOMNode(this._domManager, this.ownerDocument, this._isInShadowTree, payload, childOptions);
         if (!prev) {
             if (!this._children) {
                 // First node
@@ -1162,8 +1209,9 @@ WI.DOMNode = class DOMNode extends WI.Object
             return;
 
         this._children = this._shadowRoots.slice();
+        let childOptions = this._owningTarget ? {frameTarget: this._owningTarget} : undefined;
         for (var i = 0; i < payloads.length; ++i) {
-            var node = new WI.DOMNode(this._domManager, this.ownerDocument, this._isInShadowTree, payloads[i]);
+            var node = new WI.DOMNode(this._domManager, this.ownerDocument, this._isInShadowTree, payloads[i], childOptions);
             this._children.push(node);
         }
         this._renumber();
@@ -1321,6 +1369,8 @@ WI.DOMNode = class DOMNode extends WI.Object
         let nextColorIndex;
         switch (this.layoutContextType) {
         case WI.DOMNode.LayoutFlag.Grid:
+        case WI.DOMNode.LayoutFlag.Subgrid:
+        case WI.DOMNode.LayoutFlag.GridLanes:
             nextColorIndex = defaultConfiguration.nextGridColorIndex;
             defaultConfiguration.nextGridColorIndex = (nextColorIndex + 1) % defaultConfiguration.colors.length;
             break;
@@ -1340,7 +1390,7 @@ WI.DOMNode = class DOMNode extends WI.Object
             this.showLayoutOverlay();
     }
 
-    // COMPATIBILITY (iOS 18.0, macOS 15.0): `DOM.getMediaStats` did not exist yet.
+    // COMPATIBILITY (macOS 14.4, iOS 17.4): `DOM.getMediaStats` did not exist yet.
     async getMediaStats()
     {
         let target = WI.assumingMainTarget();
@@ -1402,9 +1452,13 @@ WI.DOMNode.LayoutFlag = {
     // These are mutually exclusive.
     Flex: "flex",
     Grid: "grid",
+    Subgrid: "subgrid",
+    GridLanes: "grid-lanes",
 };
 
 WI.DOMNode._LayoutContextTypes = [
     WI.DOMNode.LayoutFlag.Flex,
     WI.DOMNode.LayoutFlag.Grid,
+    WI.DOMNode.LayoutFlag.Subgrid,
+    WI.DOMNode.LayoutFlag.GridLanes,
 ];

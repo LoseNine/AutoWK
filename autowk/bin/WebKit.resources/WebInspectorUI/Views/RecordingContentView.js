@@ -268,11 +268,13 @@ WI.RecordingContentView = class RecordingContentView extends WI.ContentView
             let saveCount = 0;
             snapshot.context.save();
 
+            let canvas = snapshot.context.canvas;
+
             for (let attribute in snapshot.attributes)
-                snapshot.element[attribute] = snapshot.attributes[attribute];
+                canvas[attribute] = snapshot.attributes[attribute];
 
             if (snapshot.content) {
-                snapshot.context.clearRect(0, 0, snapshot.element.width, snapshot.element.height);
+                snapshot.context.clearRect(0, 0, canvas.width, canvas.height);
                 snapshot.context.drawImage(snapshot.content, 0, 0);
             }
 
@@ -304,14 +306,14 @@ WI.RecordingContentView = class RecordingContentView extends WI.ContentView
                     this._pathContext = pathCanvas.getContext("2d");
                 }
 
-                this._pathContext.canvas.width = snapshot.element.width;
-                this._pathContext.canvas.height = snapshot.element.height;
-                this._pathContext.clearRect(0, 0, snapshot.element.width, snapshot.element.height);
+                this._pathContext.canvas.width = canvas.width;
+                this._pathContext.canvas.height = canvas.height;
+                this._pathContext.clearRect(0, 0, canvas.width, canvas.height);
 
                 this._pathContext.save();
 
                 this._pathContext.fillStyle = "hsla(0, 0%, 100%, 0.75)";
-                this._pathContext.fillRect(0, 0, snapshot.element.width, snapshot.element.height);
+                this._pathContext.fillRect(0, 0, canvas.width, canvas.height);
 
                 function actionModifiesPath(action) {
                     switch (action.name) {
@@ -377,8 +379,9 @@ WI.RecordingContentView = class RecordingContentView extends WI.ContentView
             while (snapshot.index && actions[snapshot.index].name !== "beginPath")
                 --snapshot.index;
 
-            snapshot.context = this.representedObject.createContext();
-            snapshot.element = snapshot.context.canvas;
+            let {context, element} = this.representedObject.createContext();
+            snapshot.context = context;
+            snapshot.element = element;
 
             let lastSnapshotIndex = snapshotIndex;
             while (--lastSnapshotIndex >= 0) {

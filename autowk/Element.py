@@ -4,6 +4,9 @@ import base64
 import time
 
 
+ELEMENT_KEY = "element-6066-11e4-a52e-4f735466cecf"
+SHADOW_ROOT_KEY = "shadow-6066-11e4-a52e-4f735466cecf"
+
 
 class Element:
     def __init__(self, client, element_id):
@@ -18,14 +21,17 @@ class Element:
         return self.client.request("GET", f"/session/{self.client.session_id}/element/{self.element_id}/attribute/{name}")["value"]
 
     def set_attribute(self, attribute_name, value):
-        script = \
-        f"""
+        script = """
             var element = arguments[0];
-            element.setAttribute('{attribute_name}', '{value}');
-            return element.getAttribute('{attribute_name}');
+            element.setAttribute(arguments[1], arguments[2]);
+            return element.getAttribute(arguments[1]);
         """
 
-        self.client.execute_script(script, [{"element-6066-11e4-a52e-4f735466cecf": self.element_id}])
+        self.client.execute_script(script, [
+            {"element-6066-11e4-a52e-4f735466cecf": self.element_id},
+            attribute_name,
+            value,
+        ])
         return self
 
     def get_text(self):
@@ -43,10 +49,10 @@ class Element:
         return self.client.request("GET", f"/session/{self.client.session_id}/element/{self.element_id}/displayed")["value"]
 
     def click(self):
-        """和屏幕分辨率有关，无法点击请调整分辨率100%"""
-        return self.client.request("POST", f"/session/{self.client.session_id}/element/{self.element_id}/click")
+        """Compatibility helper."""
+        return self.client.request("POST", f"/session/{self.client.session_id}/element/{self.element_id}/click", {})
     def clear(self):
-        return self.client.request("POST", f"/session/{self.client.session_id}/element/{self.element_id}/clear")
+        return self.client.request("POST", f"/session/{self.client.session_id}/element/{self.element_id}/clear", {})
 
     def input(self, text):
         payload = {
@@ -56,8 +62,8 @@ class Element:
 
     def get_open_shadow_root(self):
         resp = self.client.request("GET", f"/session/{self.client.session_id}/element/{self.element_id}/shadow")
-        shadow_root_id = resp["value"]["shadow-6066-11e4-a52e-4f735466cecf"]
-        return Element(self.client, shadow_root_id)
+        shadow_root_id = resp["value"][SHADOW_ROOT_KEY]
+        return ShadowRoot(self.client, shadow_root_id)
 
 
     def find_element_by_css_selector(self, selector: str):
@@ -124,7 +130,7 @@ class Element:
         return self.client.request("POST", f"/session/{self.client.session_id}/actions", payload)
 
     def drag_element_by_offset_human(self, offset_x, offset_y, num_steps=30):
-        # 先拿到元素位置信息
+        # Internal action step.
         rect = self.get_rect()
         start_x = int(rect['x'] + rect['width'] / 2)
         start_y = int(rect['y'] + rect['height'] / 2)
@@ -132,7 +138,7 @@ class Element:
         end_x = start_x + offset_x
         end_y = start_y + offset_y
 
-        # 计算贝塞尔曲线的控制点（偏移不大）
+        # Internal action step.
         mid_x = (start_x + end_x) / 2
         mid_y = (start_y + end_y) / 2
         offset_cx = random.randint(-30, 30)
@@ -198,3 +204,31 @@ class Element:
         str_=f"[Element] {self.client}"
         return str_
 
+
+class ShadowRoot:
+    def __init__(self, client, shadow_root_id):
+        self.client = client
+        self.shadow_root_id = shadow_root_id
+
+    def find_element_by_css_selector(self, selector: str):
+        return self._find_element("css selector", selector)
+
+    def find_elements_by_css_selector(self, selector: str):
+        return self._find_elements("css selector", selector)
+
+    def find_element_by_xpath(self, selector: str):
+        return self._find_element("xpath", selector)
+
+    def find_elements_by_xpath(self, selector: str):
+        return self._find_elements("xpath", selector)
+
+    def _find_element(self, using, selector):
+        result = self.client.request("POST", self._endpoint("element"), {"using": using, "value": selector})
+        return Element(self.client, result["value"][ELEMENT_KEY])
+
+    def _find_elements(self, using, selector):
+        result = self.client.request("POST", self._endpoint("elements"), {"using": using, "value": selector})
+        return [Element(self.client, el[ELEMENT_KEY]) for el in result["value"]]
+
+    def _endpoint(self, action):
+        return f"/session/{self.client.session_id}/shadow/{self.shadow_root_id}/{action}"

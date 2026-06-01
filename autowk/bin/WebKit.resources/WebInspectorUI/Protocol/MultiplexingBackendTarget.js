@@ -33,7 +33,7 @@ WI.MultiplexingBackendTarget = class MultiplexingBackendTarget extends WI.Target
         const targetId = "multi";
         super(parentTarget, targetId, WI.UIString("Web Page"), WI.TargetType.WebPage, InspectorBackend.backendConnection);
 
-        console.assert(Array.shallowEqual(Object.keys(this._agents), ["Browser", "Target"]));
+        console.assert(Array.shallowEqual(Object.keys(this._agents).sort(), ["Browser", "Network", "Target"]));
     }
 
     // Target
@@ -41,6 +41,9 @@ WI.MultiplexingBackendTarget = class MultiplexingBackendTarget extends WI.Target
     initialize()
     {
         // Only initialize with the managers that are known to support a multiplexing target.
+        // Network is not initialized here because ProxyingNetworkAgent only exists under
+        // Site Isolation. NetworkManager initializes the multiplexing target's Network agent
+        // lazily when the first FrameTarget is created (signaling SI is active).
         WI.browserManager.initializeTarget(this);
         WI.targetManager.initializeTarget(this);
     }

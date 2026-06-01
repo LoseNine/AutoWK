@@ -53,7 +53,9 @@ WI.ScriptClusterTimelineView = class ScriptClusterTimelineView extends WI.Cluste
         this._selectedTarget = null;
         this._displayedTarget = (!this.representedObject.imported && targets.includes(WI.mainTarget)) ? WI.mainTarget : (targets.firstValue || WI.assumingMainTarget());
 
-        this._pathComponentForTarget = new Map(targets.map((target) => [target, this._createTargetPathComponent(target)]));
+        this._pathComponentForTarget = new Map;
+        for (let target of targets)
+            this._addPathComponentForTarget(target);
         this._sortTargetPathComponents();
 
         this._contentViewsForTarget = new Map;
@@ -120,8 +122,9 @@ WI.ScriptClusterTimelineView = class ScriptClusterTimelineView extends WI.Cluste
 
         let components = [];
 
-        if (this._pathComponentForTarget.size > 1)
-            components.push(this._pathComponentForTarget.get(this._displayedTarget))
+        let targetPathComponent = this._pathComponentForTarget.get(this._displayedTarget);
+        if (targetPathComponent)
+            components.push(targetPathComponent);
 
         switch (this._currentContentViewSetting.value) {
         case WI.ScriptClusterTimelineView.EventsIdentifier:
@@ -165,8 +168,8 @@ WI.ScriptClusterTimelineView = class ScriptClusterTimelineView extends WI.Cluste
 
     _updateCurrentContentView()
     {
-        let contentViews = this._contentViewsForTarget.getOrInitialize(this._displayedTarget, () => new Map);
-        let contentViewToShow = contentViews.getOrInitialize(this._currentContentViewSetting.value, (contentViewIdentifier) => {
+        let contentViews = this._contentViewsForTarget.getOrInsert(this._displayedTarget, new Map);
+        let contentViewToShow = contentViews.getOrInsertComputed(this._currentContentViewSetting.value, (contentViewIdentifier) => {
             switch (contentViewIdentifier) {
             case WI.ScriptClusterTimelineView.EventsIdentifier:
                 return new WI.ScriptDetailsTimelineView(this._displayedTarget, this.representedObject);
@@ -178,32 +181,34 @@ WI.ScriptClusterTimelineView = class ScriptClusterTimelineView extends WI.Cluste
         this.contentViewContainer.showContentView(contentViewToShow);
     }
 
-    _createTargetPathComponent(target)
+    _addPathComponentForTarget(target)
     {
+        if (this._pathComponentForTarget.size === 1)
+            this._pathComponentForTarget.firstValue.selectorArrows = true;
+
         let className = target.type === WI.TargetType.Worker ? "worker-icon" : "page-icon";
         const textOnly = false;
-        const showSelectorArrows = true;
-        let pathComponent = new WI.HierarchicalPathComponent(target.displayName, className, target, false, showSelectorArrows);
+        let showSelectorArrows = this._pathComponentForTarget.size >= 1;
+        let pathComponent = new WI.HierarchicalPathComponent(target.displayName, className, target, textOnly, showSelectorArrows);
         pathComponent.addEventListener(WI.HierarchicalPathComponent.Event.SiblingWasSelected, this._handleTargetPathComponentSelected, this);
         pathComponent.comparisonData = target;
-        return pathComponent;
+
+        console.assert(!this._pathComponentForTarget.has(target), target, this);
+        this._pathComponentForTarget.set(target, pathComponent);
     }
 
     _sortTargetPathComponents()
     {
         const rankFunctions = [
-            (representedObject) => representedObject === WI.mainTarget,
-            (representedObject) => representedObject.type === WI.TargetType.Page,
-            (representedObject) => representedObject.type === WI.TargetType.Worker,
+            (target) => target === WI.mainTarget,
+            (target) => target.type === WI.TargetType.Page,
+            (target) => target.type === WI.TargetType.Worker,
+            () => true, // Fallback for all other targets (which shouldn't be reached, but just to be safe).
         ];
         let sortedComponents = Array.from(this._pathComponentForTarget.values()).sort((a, b) => {
-            let aRank = rankFunctions.findIndex((rankFunction) => rankFunction(a));
-            let bRank = rankFunctions.findIndex((rankFunction) => rankFunction(b));
-            if ((aRank >= 0 && bRank < 0) || aRank < bRank)
-                return -1;
-            if ((bRank >= 0 && aRank < 0) || bRank < aRank)
-                return 1;
-            return a.displayName.extendedLocaleCompare(b.displayName);
+            let aRank = rankFunctions.findIndex((rankFunction) => rankFunction(a.representedObject));
+            let bRank = rankFunctions.findIndex((rankFunction) => rankFunction(b.representedObject));
+            return aRank - bRank || a.displayName.extendedLocaleCompare(b.displayName);
         });
         for (let [a, b] of sortedComponents.adjacencies()) {
             a.nextSibling = b;
@@ -223,8 +228,7 @@ WI.ScriptClusterTimelineView = class ScriptClusterTimelineView extends WI.Cluste
     {
         let {target} = event.data;
 
-        console.assert(!this._pathComponentForTarget.has(target), target, this);
-        this._pathComponentForTarget.set(target, this._createTargetPathComponent(target));
+        this._addPathComponentForTarget(target);
         this._sortTargetPathComponents();
 
         console.assert(target === this._displayedTarget || !this._contentViewsForTarget.has(target), target, this);
@@ -238,8 +242,7 @@ WI.ScriptClusterTimelineView = class ScriptClusterTimelineView extends WI.Cluste
             }
         }
 
-        if (this._pathComponentForTarget.size > 1)
-            this.dispatchEventToListeners(WI.ContentView.Event.SelectionPathComponentsDidChange);
+        this.dispatchEventToListeners(WI.ContentView.Event.SelectionPathComponentsDidChange);
     }
 
     _handleTargetPathComponentSelected(event)

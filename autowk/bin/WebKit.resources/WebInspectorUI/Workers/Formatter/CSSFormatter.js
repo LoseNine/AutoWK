@@ -211,6 +211,11 @@ CSSFormatter = class CSSFormatter
                                 return false;
                         }
                     }
+                    if (current === `*`) {
+                        if (inSelector() && this._sourceText[index + 1] === `:`) {
+                            return false;
+                        }
+                    }
                     return true;
                 };
                 if (shouldAddSpaceAfter())

@@ -1,0 +1,859 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>AutoWK Fingerprint Profile</title>
+  <style>
+    :root {
+      color-scheme: light;
+      --bg: #f5f7fa;
+      --panel: #ffffff;
+      --ink: #18202a;
+      --muted: #647184;
+      --border: #d9e0ea;
+      --pass: #147a46;
+      --pass-bg: #e5f4ec;
+      --fail: #b42318;
+      --fail-bg: #fde8e7;
+      --skip: #7a5a10;
+      --skip-bg: #fff3cd;
+      --code: #eef2f6;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      background: var(--bg);
+      color: var(--ink);
+      font: 14px/1.45 Arial, Helvetica, sans-serif;
+    }
+
+    header {
+      background: var(--panel);
+      border-bottom: 1px solid var(--border);
+      padding: 18px 24px;
+    }
+
+    main {
+      max-width: 1440px;
+      margin: 0 auto;
+      padding: 20px 24px 36px;
+    }
+
+    h1 {
+      margin: 0;
+      font-size: 22px;
+      line-height: 1.25;
+      letter-spacing: 0;
+    }
+
+    .subhead {
+      margin: 6px 0 0;
+      color: var(--muted);
+      font-size: 13px;
+    }
+
+    .summary {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(130px, 1fr));
+      gap: 12px;
+      margin-bottom: 16px;
+    }
+
+    .metric {
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 14px 16px;
+      min-height: 82px;
+    }
+
+    .metric .label {
+      color: var(--muted);
+      font-size: 12px;
+      text-transform: uppercase;
+    }
+
+    .metric .value {
+      margin-top: 6px;
+      font-size: 28px;
+      font-weight: 700;
+      line-height: 1;
+    }
+
+    .metric.pass .value { color: var(--pass); }
+    .metric.fail .value { color: var(--fail); }
+    .metric.skip .value { color: var(--skip); }
+
+    .toolbar {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin: 16px 0;
+      flex-wrap: wrap;
+    }
+
+    .toolbar button {
+      border: 1px solid var(--border);
+      background: var(--panel);
+      color: var(--ink);
+      border-radius: 6px;
+      min-height: 34px;
+      padding: 0 12px;
+      font: inherit;
+      cursor: pointer;
+    }
+
+    .toolbar button.active {
+      border-color: #2d6cdf;
+      color: #174ea6;
+      background: #eaf1ff;
+    }
+
+    .toolbar input {
+      flex: 1 1 260px;
+      min-height: 34px;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 0 12px;
+      font: inherit;
+    }
+
+    .panel {
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      overflow: hidden;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      table-layout: fixed;
+    }
+
+    th,
+    td {
+      padding: 10px 12px;
+      border-bottom: 1px solid var(--border);
+      vertical-align: top;
+      text-align: left;
+    }
+
+    th {
+      position: sticky;
+      top: 0;
+      background: #f9fbfd;
+      z-index: 1;
+      color: var(--muted);
+      font-size: 12px;
+      text-transform: uppercase;
+    }
+
+    tr:last-child td {
+      border-bottom: 0;
+    }
+
+    .col-status { width: 92px; }
+    .col-key { width: 250px; }
+    .col-note { width: 300px; }
+
+    .status {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-width: 62px;
+      min-height: 26px;
+      border-radius: 999px;
+      padding: 0 9px;
+      font-size: 12px;
+      font-weight: 700;
+    }
+
+    .status.PASS {
+      color: var(--pass);
+      background: var(--pass-bg);
+    }
+
+    .status.FAIL {
+      color: var(--fail);
+      background: var(--fail-bg);
+    }
+
+    .status.SKIP {
+      color: var(--skip);
+      background: var(--skip-bg);
+    }
+
+    code,
+    .mono {
+      font-family: Consolas, "Courier New", monospace;
+      font-size: 12px;
+      word-break: break-word;
+      overflow-wrap: anywhere;
+    }
+
+    code {
+      background: var(--code);
+      border-radius: 4px;
+      padding: 2px 4px;
+    }
+
+    .error-list {
+      display: none;
+      margin: 16px 0;
+      padding: 12px 16px;
+      border: 1px solid #f4b4b0;
+      border-radius: 8px;
+      background: var(--fail-bg);
+      color: var(--fail);
+    }
+
+    .error-list.visible {
+      display: block;
+    }
+
+    .loading {
+      padding: 18px;
+      color: var(--muted);
+    }
+
+    @media (max-width: 900px) {
+      main {
+        padding: 16px;
+      }
+
+      .summary {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+
+      table {
+        min-width: 920px;
+      }
+
+      .panel {
+        overflow-x: auto;
+      }
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>AutoWK Fingerprint Profile</h1>
+    <p class="subhead">Local fpfile comparison page. Source: <code id="profile-source">loading</code></p>
+  </header>
+  <main>
+    <section class="summary" aria-label="Fingerprint summary">
+      <div class="metric pass">
+        <div class="label">PASS</div>
+        <div class="value" data-summary-pass>0</div>
+      </div>
+      <div class="metric fail">
+        <div class="label">FAIL</div>
+        <div class="value" data-summary-fail>0</div>
+      </div>
+      <div class="metric skip">
+        <div class="label">SKIP</div>
+        <div class="value" data-summary-skip>0</div>
+      </div>
+      <div class="metric">
+        <div class="label">TOTAL</div>
+        <div class="value" data-summary-total>0</div>
+      </div>
+    </section>
+
+    <div class="toolbar" aria-label="Report controls">
+      <button type="button" class="active" data-filter="ALL">All</button>
+      <button type="button" data-filter="PASS">PASS</button>
+      <button type="button" data-filter="FAIL">FAIL</button>
+      <button type="button" data-filter="SKIP">SKIP</button>
+      <input id="search" type="search" autocomplete="off" placeholder="Filter by key, expected, actual, note">
+    </div>
+
+    <div id="errors" class="error-list"></div>
+
+    <section class="panel">
+      <div id="loading" class="loading">Collecting fingerprint values...</div>
+      <table id="report" hidden>
+        <thead>
+          <tr>
+            <th class="col-status">Status</th>
+            <th class="col-key">Key</th>
+            <th>Expected</th>
+            <th>Actual</th>
+            <th class="col-note">Note</th>
+          </tr>
+        </thead>
+        <tbody></tbody>
+      </table>
+    </section>
+  </main>
+
+  <script>
+    (function () {
+      const STARTUP_ONLY_KEYS = new Set([
+        "auto_accept_server_trust",
+        "accept_server_trust",
+        "ignore_certificate_errors",
+        "ignore_tls_errors",
+        "suppress_http_error_dialogs",
+        "suppress_http_errors",
+        "ignore_http_error_dialogs",
+        "no_http_error_dialogs",
+        "suppress_navigation_error_dialogs",
+        "suppress_network_error_dialogs",
+        "ignore_navigation_error_dialogs",
+        "ignore_network_error_dialogs",
+        "http_proxy",
+        "https_proxy",
+        "proxy",
+        "proxy_url",
+        "proxy_type",
+        "socks5_proxy"
+      ]);
+      const SENSITIVE_KEY_PARTS = ["proxy", "password", "username", "credential", "secret", "token"];
+      const CANVAS_OBSERVATION_KEYS = new Set(["canvas_noise"]);
+      const INFERRED_OR_NOT_EXPOSED_KEYS = new Set(["webaudio_creepjs_pass", "webgpu_adapter_name", "languages", "extensions"]);
+      const LEGACY_ACTUAL_ALIASES = {
+        useragent: ["useragent", "navigator.userAgent"],
+        languages: ["languages", "navigator.languages"],
+        language: ["language", "navigator.language"],
+        timezone: ["timezone", "intl.timeZone"],
+        hardware_concurrency: ["hardware_concurrency", "navigator.hardwareConcurrency"],
+        device_memory: ["device_memory", "navigator.deviceMemory"],
+        dnt: ["dnt", "navigator.doNotTrack"],
+        do_not_track: ["dnt", "navigator.doNotTrack"],
+        webdriver: ["webdriver", "navigator.webdriver"]
+      };
+
+      const state = {
+        profile: {},
+        source: "unloaded",
+        values: {},
+        errors: [],
+        report: [],
+        filter: "ALL",
+        query: ""
+      };
+
+      function normalize(value) {
+        if (value === undefined)
+          return "undefined";
+        if (value === null)
+          return null;
+        if (ArrayBuffer.isView(value))
+          return Array.from(value);
+        if (Array.isArray(value))
+          return value.map(normalize);
+        return value;
+      }
+
+      function hashBytes(bytes) {
+        let hash = 2166136261 >>> 0;
+        for (let i = 0; i < bytes.length; ++i) {
+          hash ^= bytes[i] & 255;
+          hash = Math.imul(hash, 16777619) >>> 0;
+        }
+        return ("00000000" + hash.toString(16)).slice(-8);
+      }
+
+      function sumAbsFinite(values) {
+        let sum = 0;
+        for (let i = 0; i < values.length; ++i) {
+          const value = values[i];
+          if (Number.isFinite(value))
+            sum += Math.abs(value);
+        }
+        return sum;
+      }
+
+      function setIfDefined(key, value) {
+        if (value !== undefined)
+          state.values[key] = normalize(value);
+      }
+
+      function isSensitiveKey(key) {
+        const lowered = String(key).toLowerCase();
+        return SENSITIVE_KEY_PARTS.some((part) => lowered.includes(part));
+      }
+
+      function parseBool(value) {
+        if (typeof value === "boolean")
+          return value;
+        if (value === null || value === undefined)
+          return null;
+        const text = String(value).trim().toLowerCase();
+        if (["1", "true", "yes", "on"].includes(text))
+          return true;
+        if (["0", "false", "no", "off"].includes(text))
+          return false;
+        return null;
+      }
+
+      function parseNumber(value) {
+        if (typeof value === "boolean")
+          return null;
+        const number = Number(String(value).trim());
+        return Number.isFinite(number) ? number : null;
+      }
+
+      function parseList(value) {
+        if (Array.isArray(value))
+          return value.slice();
+        return String(value).split(",").map((item) => item.trim()).filter(Boolean);
+      }
+
+      function valuesMatch(key, expected, actual) {
+        if (key === "webdriver" && ["0", "false", "no", "off"].includes(String(expected).trim().toLowerCase()))
+          return actual === false || actual === "false" || actual === "0" || actual === "undefined" || actual === null || actual === undefined;
+
+        const expectedBool = parseBool(expected);
+        const actualBool = parseBool(actual);
+        if (expectedBool !== null && actualBool !== null)
+          return expectedBool === actualBool;
+
+        if (Array.isArray(actual) || String(expected).includes(",")) {
+          const expectedList = parseList(expected);
+          const actualList = parseList(actual);
+          if (expectedList.length !== actualList.length)
+            return false;
+          return expectedList.every((item, index) => valuesMatch(key, item, actualList[index]));
+        }
+
+        const expectedNumber = parseNumber(expected);
+        const actualNumber = parseNumber(actual);
+        if (expectedNumber !== null && actualNumber !== null) {
+          const tolerance = key.startsWith("webaudio_") ? 0.05 : 0.0001;
+          return Math.abs(expectedNumber - actualNumber) <= tolerance;
+        }
+
+        return String(expected) === String(actual);
+      }
+
+      function formatValue(key, value) {
+        if (isSensitiveKey(key))
+          return "<sensitive>";
+        if (typeof value === "boolean")
+          return value ? "true" : "false";
+        if (typeof value === "number")
+          return Number.isInteger(value) ? String(value) : String(Number(value.toFixed(6)));
+        if (Array.isArray(value))
+          return value.map((item) => formatValue(key, item)).join(",");
+        if (value === null || value === undefined)
+          return "<missing>";
+        return String(value);
+      }
+
+      function getActualValue(key) {
+        if (Object.prototype.hasOwnProperty.call(state.values, key))
+          return state.values[key];
+        const aliases = LEGACY_ACTUAL_ALIASES[key] || [];
+        for (const alias of aliases) {
+          if (Object.prototype.hasOwnProperty.call(state.values, alias))
+            return state.values[alias];
+        }
+        return undefined;
+      }
+
+      async function loadProfile() {
+        try {
+          const response = await fetch("/fp-profile.json", { cache: "no-store" });
+          if (!response.ok)
+            throw new Error("HTTP " + response.status);
+          const payload = await response.json();
+          state.profile = payload.profile || {};
+          state.source = payload.source || "fp-profile.json";
+        } catch (error) {
+          state.profile = {};
+          state.source = "profile endpoint unavailable";
+          state.errors.push("profile: " + error.message);
+        }
+      }
+
+      function collectNavigator() {
+        state.values.useragent = navigator.userAgent;
+        state.values.language = navigator.language;
+        state.values.languages = Array.from(navigator.languages || []);
+        state.values.timezone = Intl.DateTimeFormat().resolvedOptions().timeZone || "";
+        state.values.hardware_concurrency = navigator.hardwareConcurrency;
+        setIfDefined("device_memory", navigator.deviceMemory);
+        state.values.dnt = navigator.doNotTrack === undefined ? "undefined" : navigator.doNotTrack;
+        state.values.webdriver = navigator.webdriver === undefined ? "undefined" : navigator.webdriver;
+      }
+
+      function collectCanvas() {
+        const canvas = document.createElement("canvas");
+        canvas.width = 96;
+        canvas.height = 48;
+        const context = canvas.getContext("2d");
+        if (!context) {
+          state.values.canvas_supported = false;
+          return;
+        }
+        state.values.canvas_supported = true;
+        const gradient = context.createLinearGradient(0, 0, canvas.width, canvas.height);
+        gradient.addColorStop(0, "#1357c8");
+        gradient.addColorStop(0.5, "#e5d45a");
+        gradient.addColorStop(1, "#c6353d");
+        context.fillStyle = gradient;
+        context.fillRect(0, 0, canvas.width, canvas.height);
+        context.fillStyle = "rgba(21, 57, 201, 0.82)";
+        context.font = "18px serif";
+        context.fillText("AutoWK fp", 8, 30);
+        const imageData = context.getImageData(0, 0, canvas.width, canvas.height).data;
+        state.values.canvas_image_hash = hashBytes(imageData);
+        const url = canvas.toDataURL("image/png");
+        state.values.canvas_data_url_length = url.length;
+        state.values.canvas_data_url_hash = hashBytes(new TextEncoder().encode(url));
+      }
+
+      function collectWebGL() {
+        const canvas = document.createElement("canvas");
+        const gl = canvas.getContext("webgl") || canvas.getContext("experimental-webgl");
+        if (!gl) {
+          state.values.webgl_supported = false;
+          return;
+        }
+        state.values.webgl_supported = true;
+
+        state.values.extensions = (gl.getSupportedExtensions() || []).slice();
+        gl.getExtension("WEBGL_debug_renderer_info");
+        gl.getExtension("EXT_texture_filter_anisotropic")
+          || gl.getExtension("WEBKIT_EXT_texture_filter_anisotropic")
+          || gl.getExtension("MOZ_EXT_texture_filter_anisotropic");
+        gl.getExtension("WEBGL_draw_buffers");
+
+        const parameters = {
+          aliased_line_width_range: "ALIASED_LINE_WIDTH_RANGE",
+          aliased_point_size_range: "ALIASED_POINT_SIZE_RANGE",
+          alpha_bits: "ALPHA_BITS",
+          blue_bits: "BLUE_BITS",
+          depth_bits: "DEPTH_BITS",
+          green_bits: "GREEN_BITS",
+          max_combined_texture_image_units: "MAX_COMBINED_TEXTURE_IMAGE_UNITS",
+          max_cube_map_texture_size: "MAX_CUBE_MAP_TEXTURE_SIZE",
+          max_fragment_uniform_vectors: "MAX_FRAGMENT_UNIFORM_VECTORS",
+          max_renderbuffer_size: "MAX_RENDERBUFFER_SIZE",
+          max_texture_image_units: "MAX_TEXTURE_IMAGE_UNITS",
+          max_texture_size: "MAX_TEXTURE_SIZE",
+          max_varying_vectors: "MAX_VARYING_VECTORS",
+          max_vertex_attribs: "MAX_VERTEX_ATTRIBS",
+          max_vertex_texture_image_units: "MAX_VERTEX_TEXTURE_IMAGE_UNITS",
+          max_vertex_uniform_vectors: "MAX_VERTEX_UNIFORM_VECTORS",
+          max_viewport_dims: "MAX_VIEWPORT_DIMS",
+          red_bits: "RED_BITS",
+          renderer: "RENDERER",
+          sample_buffers: "SAMPLE_BUFFERS",
+          samples: "SAMPLES",
+          shading_language_version: "SHADING_LANGUAGE_VERSION",
+          stencil_bits: "STENCIL_BITS",
+          subpixel_bits: "SUBPIXEL_BITS",
+          vendor: "VENDOR",
+          version: "VERSION"
+        };
+
+        for (const [key, constant] of Object.entries(parameters)) {
+          try {
+            state.values[key] = normalize(gl.getParameter(gl[constant]));
+          } catch (error) {
+            state.errors.push(key + ": " + error.message);
+          }
+        }
+
+        const debugInfo = gl.getExtension("WEBGL_debug_renderer_info");
+        if (debugInfo) {
+          state.values.unmasked_renderer = normalize(gl.getParameter(debugInfo.UNMASKED_RENDERER_WEBGL));
+          state.values.unmasked_vendor = normalize(gl.getParameter(debugInfo.UNMASKED_VENDOR_WEBGL));
+        }
+
+        const anisotropy = gl.getExtension("EXT_texture_filter_anisotropic")
+          || gl.getExtension("WEBKIT_EXT_texture_filter_anisotropic")
+          || gl.getExtension("MOZ_EXT_texture_filter_anisotropic");
+        if (anisotropy)
+          state.values.max_texture_max_anisotropy = normalize(gl.getParameter(anisotropy.MAX_TEXTURE_MAX_ANISOTROPY_EXT));
+
+        const drawBuffers = gl.getExtension("WEBGL_draw_buffers");
+        if (gl.MAX_COLOR_ATTACHMENTS !== undefined)
+          state.values.max_color_attachments = normalize(gl.getParameter(gl.MAX_COLOR_ATTACHMENTS));
+        else if (drawBuffers && drawBuffers.MAX_COLOR_ATTACHMENTS_WEBGL !== undefined)
+          state.values.max_color_attachments = normalize(gl.getParameter(drawBuffers.MAX_COLOR_ATTACHMENTS_WEBGL));
+        if (gl.MAX_DRAW_BUFFERS !== undefined)
+          state.values.max_draw_buffers = normalize(gl.getParameter(gl.MAX_DRAW_BUFFERS));
+        else if (drawBuffers && drawBuffers.MAX_DRAW_BUFFERS_WEBGL !== undefined)
+          state.values.max_draw_buffers = normalize(gl.getParameter(drawBuffers.MAX_DRAW_BUFFERS_WEBGL));
+
+        const attributes = gl.getContextAttributes() || {};
+        state.values.context_alpha = attributes.alpha;
+        state.values.context_antialias = attributes.antialias;
+        state.values.context_depth = attributes.depth;
+        state.values.context_failIfMajorPerformanceCaveat = attributes.failIfMajorPerformanceCaveat;
+        state.values.context_powerPreference = attributes.powerPreference || "default";
+        state.values.context_premultipliedAlpha = attributes.premultipliedAlpha;
+        state.values.context_preserveDrawingBuffer = attributes.preserveDrawingBuffer;
+        state.values.context_stencil = attributes.stencil;
+
+        const shaders = { vs: gl.VERTEX_SHADER, fs: gl.FRAGMENT_SHADER };
+        const precisions = {
+          low_float: gl.LOW_FLOAT,
+          medium_float: gl.MEDIUM_FLOAT,
+          high_float: gl.HIGH_FLOAT,
+          low_int: gl.LOW_INT,
+          medium_int: gl.MEDIUM_INT,
+          high_int: gl.HIGH_INT
+        };
+        for (const [shaderPrefix, shader] of Object.entries(shaders)) {
+          for (const [precisionName, precision] of Object.entries(precisions)) {
+            const format = gl.getShaderPrecisionFormat(shader, precision);
+            if (format)
+              state.values["shader_precision_" + shaderPrefix + "_" + precisionName] = [format.rangeMin, format.rangeMax, format.precision];
+          }
+        }
+      }
+
+      async function collectWebGPU() {
+        state.values.webgpu_enabled = !!navigator.gpu;
+        if (!navigator.gpu)
+          return;
+
+        state.values.webgpu_preferred_canvas_format = navigator.gpu.getPreferredCanvasFormat();
+        try {
+          state.values.webgpu_wgsl_language_features = Array.from(navigator.gpu.wgslLanguageFeatures || []).map(String);
+        } catch (error) {
+          state.errors.push("webgpu_wgsl_language_features: " + error.message);
+        }
+
+        const adapter = await navigator.gpu.requestAdapter();
+        if (!adapter) {
+          state.values.webgpu_adapter_available = false;
+          return;
+        }
+        state.values.webgpu_adapter_available = true;
+        setIfDefined("webgpu_adapter_name", adapter.name);
+        state.values.webgpu_features = Array.from(adapter.features || []).map(String);
+        state.values.webgpu_is_fallback_adapter = adapter.isFallbackAdapter;
+        if (adapter.info) {
+          state.values.webgpu_vendor = adapter.info.vendor;
+          state.values.webgpu_architecture = adapter.info.architecture;
+          state.values.webgpu_device = adapter.info.device;
+          state.values.webgpu_description = adapter.info.description;
+        }
+
+        const limitMap = {
+          webgpu_max_texture_dimension_1d: "maxTextureDimension1D",
+          webgpu_max_texture_dimension_2d: "maxTextureDimension2D",
+          webgpu_max_texture_dimension_3d: "maxTextureDimension3D",
+          webgpu_max_texture_array_layers: "maxTextureArrayLayers",
+          webgpu_max_bind_groups: "maxBindGroups",
+          webgpu_max_bind_groups_plus_vertex_buffers: "maxBindGroupsPlusVertexBuffers",
+          webgpu_max_bindings_per_bind_group: "maxBindingsPerBindGroup",
+          webgpu_max_dynamic_uniform_buffers_per_pipeline_layout: "maxDynamicUniformBuffersPerPipelineLayout",
+          webgpu_max_dynamic_storage_buffers_per_pipeline_layout: "maxDynamicStorageBuffersPerPipelineLayout",
+          webgpu_max_sampled_textures_per_shader_stage: "maxSampledTexturesPerShaderStage",
+          webgpu_max_samplers_per_shader_stage: "maxSamplersPerShaderStage",
+          webgpu_max_storage_buffers_per_shader_stage: "maxStorageBuffersPerShaderStage",
+          webgpu_max_storage_textures_per_shader_stage: "maxStorageTexturesPerShaderStage",
+          webgpu_max_uniform_buffers_per_shader_stage: "maxUniformBuffersPerShaderStage",
+          webgpu_max_uniform_buffer_binding_size: "maxUniformBufferBindingSize",
+          webgpu_max_storage_buffer_binding_size: "maxStorageBufferBindingSize",
+          webgpu_min_uniform_buffer_offset_alignment: "minUniformBufferOffsetAlignment",
+          webgpu_min_storage_buffer_offset_alignment: "minStorageBufferOffsetAlignment",
+          webgpu_max_vertex_buffers: "maxVertexBuffers",
+          webgpu_max_buffer_size: "maxBufferSize",
+          webgpu_max_vertex_attributes: "maxVertexAttributes",
+          webgpu_max_vertex_buffer_array_stride: "maxVertexBufferArrayStride",
+          webgpu_max_inter_stage_shader_variables: "maxInterStageShaderVariables",
+          webgpu_max_inter_stage_shader_components: "maxInterStageShaderComponents",
+          webgpu_max_color_attachments: "maxColorAttachments",
+          webgpu_max_color_attachment_bytes_per_sample: "maxColorAttachmentBytesPerSample",
+          webgpu_max_compute_workgroup_storage_size: "maxComputeWorkgroupStorageSize",
+          webgpu_max_compute_invocations_per_workgroup: "maxComputeInvocationsPerWorkgroup",
+          webgpu_max_compute_workgroup_size_x: "maxComputeWorkgroupSizeX",
+          webgpu_max_compute_workgroup_size_y: "maxComputeWorkgroupSizeY",
+          webgpu_max_compute_workgroup_size_z: "maxComputeWorkgroupSizeZ",
+          webgpu_max_compute_workgroups_per_dimension: "maxComputeWorkgroupsPerDimension",
+          webgpu_max_storage_buffers_in_fragment_stage: "maxStorageBuffersInFragmentStage",
+          webgpu_max_storage_textures_in_fragment_stage: "maxStorageTexturesInFragmentStage",
+          webgpu_max_storage_buffers_in_vertex_stage: "maxStorageBuffersInVertexStage",
+          webgpu_max_storage_textures_in_vertex_stage: "maxStorageTexturesInVertexStage"
+        };
+        for (const [key, property] of Object.entries(limitMap)) {
+          if (adapter.limits && adapter.limits[property] !== undefined)
+            state.values[key] = Number(adapter.limits[property]);
+        }
+      }
+
+      async function collectWebAudio() {
+        const OfflineContext = window.OfflineAudioContext || window.webkitOfflineAudioContext;
+        state.values.webaudio_enabled = !!OfflineContext;
+        if (!OfflineContext)
+          return;
+
+        const context = new OfflineContext(1, 5000, 44100);
+        const oscillator = context.createOscillator();
+        const analyser = context.createAnalyser();
+        const compressor = context.createDynamicsCompressor ? context.createDynamicsCompressor() : null;
+        analyser.fftSize = 2048;
+        oscillator.type = "triangle";
+        oscillator.frequency.value = 1000;
+        oscillator.connect(analyser);
+        if (compressor) {
+          analyser.connect(compressor);
+          compressor.connect(context.destination);
+        } else {
+          analyser.connect(context.destination);
+        }
+        oscillator.start(0);
+        const buffer = await context.startRendering();
+        state.values.webaudio_target_sample_sum = sumAbsFinite(buffer.getChannelData(0));
+        if (compressor)
+          state.values.webaudio_target_reduction = compressor.reduction;
+        try {
+          const frequencyData = new Float32Array(analyser.frequencyBinCount);
+          analyser.getFloatFrequencyData(frequencyData);
+          state.values.webaudio_target_frequency_sum = sumAbsFinite(frequencyData);
+        } catch (error) {
+          state.errors.push("webaudio_target_frequency_sum: " + error.message);
+        }
+        try {
+          const timeData = new Float32Array(analyser.fftSize);
+          analyser.getFloatTimeDomainData(timeData);
+          state.values.webaudio_target_time_sum = sumAbsFinite(timeData);
+        } catch (error) {
+          state.errors.push("webaudio_target_time_sum: " + error.message);
+        }
+      }
+
+      function buildReport() {
+        const report = [];
+        for (const [key, expected] of Object.entries(state.profile)) {
+          if (STARTUP_ONLY_KEYS.has(key) || isSensitiveKey(key)) {
+            report.push({ key, status: "SKIP", expected: formatValue(key, expected), actual: "<startup-only>", detail: "not page-readable" });
+            continue;
+          }
+
+          if (CANVAS_OBSERVATION_KEYS.has(key)) {
+            report.push({ key, status: "SKIP", expected: formatValue(key, expected), actual: "canvas_image_hash=" + (state.values.canvas_image_hash || "<missing>"), detail: "canvas is observed by hash, not a direct setting" });
+            continue;
+          }
+
+          if (INFERRED_OR_NOT_EXPOSED_KEYS.has(key)) {
+            const actual = getActualValue(key);
+            let detail = "covered indirectly or not exposed to JS";
+            if (key === "languages")
+              detail = "current WebKit exposes only navigator.language in navigator.languages";
+            else if (key === "extensions")
+              detail = "WebGL reports the supported intersection of fpfile extensions and platform capabilities";
+            report.push({ key, status: "SKIP", expected: formatValue(key, expected), actual: actual === undefined ? "<not exposed>" : formatValue(key, actual), detail });
+            continue;
+          }
+
+          const actual = getActualValue(key);
+          if (actual === undefined) {
+            let detail = "not exposed by this page/API";
+            if (key.startsWith("webgpu_") && state.values.webgpu_enabled === false)
+              detail = "WebGPU is unavailable";
+            else if (key.startsWith("webaudio_") && state.values.webaudio_enabled === false)
+              detail = "WebAudio is unavailable";
+            report.push({ key, status: "SKIP", expected: formatValue(key, expected), actual: "<missing>", detail });
+            continue;
+          }
+
+          report.push({ key, status: valuesMatch(key, expected, actual) ? "PASS" : "FAIL", expected: formatValue(key, expected), actual: formatValue(key, actual), detail: "" });
+        }
+        state.report = report;
+      }
+
+      function textIncludes(item, query) {
+        if (!query)
+          return true;
+        const haystack = [item.status, item.key, item.expected, item.actual, item.detail].join(" ").toLowerCase();
+        return haystack.includes(query);
+      }
+
+      function render() {
+        document.getElementById("profile-source").textContent = state.source;
+
+        const passed = state.report.filter((item) => item.status === "PASS").length;
+        const failed = state.report.filter((item) => item.status === "FAIL").length;
+        const skipped = state.report.filter((item) => item.status === "SKIP").length;
+        document.querySelector("[data-summary-pass]").textContent = String(passed);
+        document.querySelector("[data-summary-fail]").textContent = String(failed);
+        document.querySelector("[data-summary-skip]").textContent = String(skipped);
+        document.querySelector("[data-summary-total]").textContent = String(state.report.length);
+
+        const errors = document.getElementById("errors");
+        if (state.errors.length) {
+          errors.classList.add("visible");
+          errors.innerHTML = "<strong>Collector notes</strong><br>" + state.errors.map(escapeHTML).join("<br>");
+        } else {
+          errors.classList.remove("visible");
+          errors.textContent = "";
+        }
+
+        const tbody = document.querySelector("#report tbody");
+        const filtered = state.report.filter((item) => (state.filter === "ALL" || item.status === state.filter) && textIncludes(item, state.query));
+        tbody.innerHTML = filtered.map((item) => {
+          return "<tr data-status=\"" + item.status + "\">"
+            + "<td><span class=\"status " + item.status + "\">" + item.status + "</span></td>"
+            + "<td class=\"mono\">" + escapeHTML(item.key) + "</td>"
+            + "<td class=\"mono\">" + escapeHTML(item.expected) + "</td>"
+            + "<td class=\"mono\">" + escapeHTML(item.actual) + "</td>"
+            + "<td>" + escapeHTML(item.detail) + "</td>"
+            + "</tr>";
+        }).join("");
+
+        document.getElementById("loading").hidden = true;
+        document.getElementById("report").hidden = false;
+      }
+
+      function escapeHTML(value) {
+        return String(value).replace(/[&<>"']/g, (char) => ({
+          "&": "&amp;",
+          "<": "&lt;",
+          ">": "&gt;",
+          "\"": "&quot;",
+          "'": "&#39;"
+        }[char]));
+      }
+
+      function bindControls() {
+        document.querySelectorAll("[data-filter]").forEach((button) => {
+          button.addEventListener("click", () => {
+            state.filter = button.dataset.filter;
+            document.querySelectorAll("[data-filter]").forEach((item) => item.classList.toggle("active", item === button));
+            render();
+          });
+        });
+        document.getElementById("search").addEventListener("input", (event) => {
+          state.query = event.target.value.trim().toLowerCase();
+          render();
+        });
+      }
+
+      window.__autowkFingerprintResult = { done: false, values: state.values, errors: state.errors, report: state.report };
+
+      (async function () {
+        bindControls();
+        try {
+          await loadProfile();
+          collectNavigator();
+          collectCanvas();
+          collectWebGL();
+          await collectWebGPU();
+          await collectWebAudio();
+          buildReport();
+        } catch (error) {
+          state.errors.push("collector: " + error.message);
+        } finally {
+          window.__autowkFingerprintResult = { done: true, values: state.values, errors: state.errors, report: state.report };
+          render();
+        }
+      })();
+    })();
+  </script>
+</body>
+</html>

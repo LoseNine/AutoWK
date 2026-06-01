@@ -1,4 +1,9 @@
 include README.md
 include LICENSE
-recursive-include autowk *
-prune autowk/bin/*.pdb
+include NOTICE
+include THIRD_PARTY_NOTICES.md
+recursive-include licenses *
+recursive-include autowk/bin *
+recursive-exclude autowk/bin *.pdb
+global-exclude *.py[cod]
+global-exclude __pycache__

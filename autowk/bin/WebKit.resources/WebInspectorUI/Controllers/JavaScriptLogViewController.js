@@ -45,6 +45,7 @@ WI.JavaScriptLogViewController = class JavaScriptLogViewController extends WI.Ob
 
         this._cleared = true;
         this._previousMessageView = null;
+        this._lastConsoleMessageViewForTarget = new WeakMap;
         this._lastCommitted = {text: "", special: false};
         this._repeatCountWasInterrupted = false;
 
@@ -66,9 +67,6 @@ WI.JavaScriptLogViewController = class JavaScriptLogViewController extends WI.Ob
 
         this._pendingMessagesForSessionOrGroup = new Map;
         this._scheduledRenderIdentifier = 0;
-
-        this._consoleMessageViews = [];
-        this._showTimestamps = WI.settings.showConsoleMessageTimestamps.value;
 
         this.startNewSession();
     }
@@ -112,6 +110,7 @@ WI.JavaScriptLogViewController = class JavaScriptLogViewController extends WI.Ob
         let consoleSession = new WI.ConsoleSession(data);
 
         this._previousMessageView = null;
+        this._lastConsoleMessageViewForTarget = new WeakMap;
         this._lastCommitted = {text: "", special: false};
         this._repeatCountWasInterrupted = false;
 
@@ -136,7 +135,7 @@ WI.JavaScriptLogViewController = class JavaScriptLogViewController extends WI.Ob
                 classNames.push("special-user-log");
 
             let commandMessageView = new WI.ConsoleCommandView(text, {classNames, handleClick});
-            this._appendConsoleMessageView(commandMessageView, true);
+            this._appendConsoleCommandView(commandMessageView);
             this._lastCommitted = {text, special: addSpecialUserLogClass};
         }
 
@@ -152,28 +151,42 @@ WI.JavaScriptLogViewController = class JavaScriptLogViewController extends WI.Ob
 
     appendConsoleMessage(consoleMessage)
     {
-        var consoleMessageView = new WI.ConsoleMessageView(consoleMessage);
+        let consoleMessageView = new WI.ConsoleMessageView(consoleMessage);
         this._appendConsoleMessageView(consoleMessageView);
         return consoleMessageView;
     }
 
-    updatePreviousMessageRepeatCount(count, timestamp)
+    updatePreviousMessageRepeatCount(target, count, timestamp)
     {
-        console.assert(this._previousMessageView);
-        if (!this._previousMessageView)
+        let previousMessageView = this._previousMessageView;
+        console.assert(previousMessageView);
+        if (!previousMessageView)
             return false;
 
-        var previousIgnoredCount = this._previousMessageView[WI.JavaScriptLogViewController.IgnoredRepeatCount] || 0;
-        var previousVisibleCount = this._previousMessageView.repeatCount;
-
-        if (!this._repeatCountWasInterrupted) {
-            this._previousMessageView.repeatCount = count - previousIgnoredCount;
-            this._previousMessageView.timestamp = timestamp;
+        if (previousMessageView.message.target !== target) {
+            previousMessageView = this._lastConsoleMessageViewForTarget.get(target);
+            console.assert(previousMessageView);
+            if (!previousMessageView)
+                return false;
+            let messageView = this.appendConsoleMessage(previousMessageView.message);
+            messageView.timestamp = timestamp;
+            messageView[WI.JavaScriptLogViewController.IgnoredRepeatCount] = count - 1;
+            messageView.repeatCount = 1;
+            this._repeatCountWasInterrupted = false;
             return true;
         }
 
-        var consoleMessage = this._previousMessageView.message;
-        var duplicatedConsoleMessageView = new WI.ConsoleMessageView(consoleMessage);
+        let previousIgnoredCount = previousMessageView[WI.JavaScriptLogViewController.IgnoredRepeatCount] || 0;
+        let previousVisibleCount = previousMessageView.repeatCount;
+
+        if (!this._repeatCountWasInterrupted) {
+            previousMessageView.repeatCount = count - previousIgnoredCount;
+            previousMessageView.timestamp = timestamp;
+            return true;
+        }
+
+        let consoleMessage = previousMessageView.message;
+        let duplicatedConsoleMessageView = new WI.ConsoleMessageView(consoleMessage);
         duplicatedConsoleMessageView[WI.JavaScriptLogViewController.IgnoredRepeatCount] = previousIgnoredCount + previousVisibleCount;
         duplicatedConsoleMessageView.repeatCount = 1;
         duplicatedConsoleMessageView.timestamp = timestamp;
@@ -238,7 +251,7 @@ WI.JavaScriptLogViewController = class JavaScriptLogViewController extends WI.Ob
 
         if (this._lastCommitted.text !== text || this._lastCommitted.special) {
             let commandMessageView = new WI.ConsoleCommandView(text);
-            this._appendConsoleMessageView(commandMessageView, true);
+            this._appendConsoleCommandView(commandMessageView);
             this._lastCommitted = {text, special: false};
         }
 
@@ -282,28 +295,46 @@ WI.JavaScriptLogViewController = class JavaScriptLogViewController extends WI.Ob
 
     _appendConsoleMessageView(messageView, repeatCountWasInterrupted)
     {
-        let pendingMessagesForSession = this._pendingMessagesForSessionOrGroup.get(this._currentSessionOrGroup);
-        if (!pendingMessagesForSession) {
-            pendingMessagesForSession = [];
-            this._pendingMessagesForSessionOrGroup.set(this._currentSessionOrGroup, pendingMessagesForSession);
-        }
-        pendingMessagesForSession.push(messageView);
-        this._consoleMessageViews.push(messageView);
+        console.assert(messageView instanceof WI.ConsoleMessageView);
 
+        this._addToPendingMessages(messageView);
         this._cleared = false;
         this._repeatCountWasInterrupted = repeatCountWasInterrupted || false;
 
-        if (!repeatCountWasInterrupted)
-            this._previousMessageView = messageView;
+        let message = messageView.message;
 
-        if (messageView.message && messageView.message.source !== WI.ConsoleMessage.MessageSource.JS)
-            this._lastCommitted = {test: "", special: false};
+        if (!repeatCountWasInterrupted) {
+            this._previousMessageView = messageView;
+            this._lastConsoleMessageViewForTarget.set(message.target, messageView);
+        }
+
+        if (message.source !== WI.ConsoleMessage.MessageSource.JS)
+            this._lastCommitted = {text: "", special: false};
 
         if (WI.consoleContentView.isAttached)
             this.renderPendingMessagesSoon();
 
-        if (!WI.isShowingConsoleTab() && messageView.message && messageView.message.shouldRevealConsole)
+        if (!WI.isShowingConsoleTab() && message.shouldRevealConsole)
             WI.showSplitConsole();
+    }
+
+    _appendConsoleCommandView(commandView)
+    {
+        console.assert(commandView instanceof WI.ConsoleCommandView);
+
+        this._addToPendingMessages(commandView);
+        this._cleared = false;
+        this._repeatCountWasInterrupted = true;
+
+        if (WI.consoleContentView.isAttached)
+            this.renderPendingMessagesSoon();
+    }
+
+    _addToPendingMessages(messageView)
+    {
+        let pendingMessagesForSession = this._pendingMessagesForSessionOrGroup.getOrInsert(this._currentSessionOrGroup, []);
+        pendingMessagesForSession.push(messageView);
+        this._pendingMessagesForSessionOrGroup.set(this._currentSessionOrGroup, pendingMessagesForSession);
     }
 
     renderPendingMessages()
@@ -343,7 +374,7 @@ WI.JavaScriptLogViewController = class JavaScriptLogViewController extends WI.Ob
 
         this._currentSessionOrGroup = savedCurrentConsoleGroup;
 
-        this._currentSessionOrGroup.element.classList.toggle("timestamps-visible", this._showTimestamps);
+        this._handleShowConsoleMessageTimestampsSettingChanged();
 
         if (wasScrolledToBottom || lastMessageView instanceof WI.ConsoleCommandView || lastMessageView.message.type === WI.ConsoleMessage.MessageType.Result || lastMessageView.message.type === WI.ConsoleMessage.MessageType.Image)
             this.scrollToBottom();
@@ -364,15 +395,15 @@ WI.JavaScriptLogViewController = class JavaScriptLogViewController extends WI.Ob
 
     _didRenderConsoleMessageView(messageView)
     {
-        var type = messageView instanceof WI.ConsoleCommandView ? null : messageView.message.type;
+        let type = messageView instanceof WI.ConsoleCommandView ? null : messageView.message.type;
         if (type === WI.ConsoleMessage.MessageType.EndGroup) {
-            var parentGroup = this._currentSessionOrGroup.parentGroup;
+            let parentGroup = this._currentSessionOrGroup.parentGroup;
             if (parentGroup)
                 this._currentSessionOrGroup = parentGroup;
         } else {
             if (type === WI.ConsoleMessage.MessageType.StartGroup || type === WI.ConsoleMessage.MessageType.StartGroupCollapsed) {
-                var group = new WI.ConsoleGroup(this._currentSessionOrGroup);
-                var groupElement = group.render(messageView);
+                let group = new WI.ConsoleGroup(this._currentSessionOrGroup);
+                let groupElement = group.render(messageView);
                 this._currentSessionOrGroup.append(groupElement);
                 this._currentSessionOrGroup = group;
             } else
@@ -406,14 +437,7 @@ WI.JavaScriptLogViewController = class JavaScriptLogViewController extends WI.Ob
 
     _handleShowConsoleMessageTimestampsSettingChanged()
     {
-        this._showTimestamps = WI.settings.showConsoleMessageTimestamps.value;
-        this._currentSessionOrGroup.element.classList.toggle("timestamps-visible", this._showTimestamps);
-        if (this._showTimestamps) {
-            for (let consoleMessageView of this._consoleMessageViews) {
-                if (consoleMessageView instanceof WI.ConsoleMessageView)
-                    consoleMessageView.renderTimestamp();
-            }
-        }
+        this._currentSessionOrGroup.element.classList.toggle("timestamps-visible", WI.settings.showConsoleMessageTimestamps.value);
     }
 };
 

@@ -40,7 +40,7 @@ WI.ConsoleObserver = class ConsoleObserver extends InspectorBackend.Dispatcher
 
     messageRepeatCountUpdated(count, timestamp)
     {
-        WI.consoleManager.messageRepeatCountUpdated(count, timestamp);
+        WI.consoleManager.messageRepeatCountUpdated(this._target, count, timestamp);
     }
 
     messagesCleared(reason)

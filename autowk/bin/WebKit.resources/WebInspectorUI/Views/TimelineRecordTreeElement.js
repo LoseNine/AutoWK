@@ -109,6 +109,7 @@ WI.TimelineRecordTreeElement.RenderingFrameRecordIconStyleClass = "rendering-fra
 WI.TimelineRecordTreeElement.APIRecordIconStyleClass = "api-record";
 WI.TimelineRecordTreeElement.EvaluatedRecordIconStyleClass = "evaluated-record";
 WI.TimelineRecordTreeElement.EventRecordIconStyleClass = "event-record";
+WI.TimelineRecordTreeElement.PerformanceEntryIconStyleClass = "performance-entry";
 WI.TimelineRecordTreeElement.TimerRecordIconStyleClass = "timer-record";
 WI.TimelineRecordTreeElement.ProbeRecordIconStyleClass = "probe-record";
 WI.TimelineRecordTreeElement.ConsoleProfileIconStyleClass = "console-profile-record";

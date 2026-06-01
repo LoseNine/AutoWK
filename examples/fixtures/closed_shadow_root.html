@@ -1,0 +1,16 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>AutoWK Closed Shadow Fixture</title>
+</head>
+<body>
+  <div id="closed-shadow-host"></div>
+  <script>
+    const host = document.querySelector("#closed-shadow-host");
+    const root = host.attachShadow({mode: "closed"});
+    root.innerHTML = "<span id='closed-shadow-value'>Closed shadow text</span>";
+    host.ruyishadowroot = root;
+  </script>
+</body>
+</html>

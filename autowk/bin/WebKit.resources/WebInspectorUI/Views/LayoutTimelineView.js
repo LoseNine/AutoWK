@@ -278,6 +278,12 @@ WI.LayoutTimelineView = class LayoutTimelineView extends WI.TimelineView
 
         this._showingHighlightForRecord = record;
 
+        if (record.domNode) {
+            record.domNode.highlight();
+            this._showingHighlight = true;
+            return;
+        }
+
         let target = WI.assumingMainTarget();
 
         const contentColor = {r: 111, g: 168, b: 220, a: 0.66};

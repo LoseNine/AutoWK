@@ -52,7 +52,10 @@ WI.SourceCodeTextEditor = class SourceCodeTextEditor extends WI.TextEditor
         this._basicBlockAnnotator = null;
         this._editingController = null;
 
-        this._autoFormat = false;
+        // If the source code was formatted before (aka pretty-printed), any breakpoint and source code text ranges for search results will use the formatted line and column numbers.
+        // See WI.SourceCodeLocation.prototype._sourceCodeFormatterDidChange()
+        // If this is a new editor view associated with a previously formatted WI.SourceCode, automatically format its contents so the correct locations are highlighted.
+        this._autoFormat = !!this._sourceCode.formatterSourceMap;
         this._isProbablyMinified = false;
 
         this._ignoreContentDidChange = 0;
@@ -754,7 +757,8 @@ WI.SourceCodeTextEditor = class SourceCodeTextEditor extends WI.TextEditor
 
             // Don't show an inline widget when there is only one breakpoint location on the line
             // and it's at the start of the line.
-            if (locations.length === 1 && position.lineNumber === lineNumber && !this.line(lineNumber).slice(0, position.columnNumber).trim().length)
+            let lineContent = this.line(lineNumber);
+            if (locations.length === 1 && position.lineNumber === lineNumber && lineContent && !lineContent.slice(0, position.columnNumber).trim().length)
                 continue;
 
             console.assert(!Array.from(this._inlineBreakpointDataForLine.values()).some(({widget}) => widget.sourceCodeLocation.isEqual(location)), location, this._inlineBreakpointDataForLine);
@@ -814,7 +818,7 @@ WI.SourceCodeTextEditor = class SourceCodeTextEditor extends WI.TextEditor
     _addThreadIndicatorForTarget(target)
     {
         let targetData = WI.debuggerManager.dataForTarget(target);
-        let topCallFrame = targetData.stackTrace?.callFrames[0];
+        let topCallFrame = targetData?.stackTrace?.callFrames[0];
         if (!topCallFrame)
             return;
 
@@ -1554,7 +1558,7 @@ WI.SourceCodeTextEditor = class SourceCodeTextEditor extends WI.TextEditor
             // Avoid highlighting the entire program if this is the start of the first statement.
             // Special case the assignment expression inside of a for..of and for..in to highlight a larger range.
             for (let node of nodes) {
-                if (node.startPosition.equals(position) && node.type !== WI.ScriptSyntaxTree.NodeType.Program) {
+                if (node.startPosition?.equals(position) && node.type !== WI.ScriptSyntaxTree.NodeType.Program) {
                     highlightSourceCodeRange(node.startPosition, node.endPosition);
                     return;
                 }
@@ -1564,7 +1568,7 @@ WI.SourceCodeTextEditor = class SourceCodeTextEditor extends WI.TextEditor
                         return;
                     }
                 }
-                if (node.startPosition.isAfter(position))
+                if (node.startPosition?.isAfter(position))
                     break;
             }
 
@@ -1572,14 +1576,14 @@ WI.SourceCodeTextEditor = class SourceCodeTextEditor extends WI.TextEditor
             // We check this after ensuring nothing starts with this offset,
             // as that would be more important.
             for (let node of nodes) {
-                if (node.endPosition.equals(position)) {
+                if (node.endPosition?.equals(position)) {
                     if (node.type === WI.ScriptSyntaxTree.NodeType.BlockStatement) {
                         // Closing brace of a block, only highlight the closing brace character.
                         highlightSourceCodeRange(position.offsetColumn(-1), position);
                         return;
                     }
                 }
-                if (node.startPosition.isAfter(position))
+                if (node.startPosition?.isAfter(position))
                     break;
             }
 

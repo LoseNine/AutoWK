@@ -25,7 +25,7 @@
 
 WI.LayoutTimelineRecord = class LayoutTimelineRecord extends WI.TimelineRecord
 {
-    constructor(eventType, startTime, endTime, stackTrace, sourceCodeLocation, quad)
+    constructor(eventType, startTime, endTime, stackTrace, sourceCodeLocation, {quad, area, domNode} = {})
     {
         super(WI.TimelineRecord.Type.Layout, startTime, endTime, stackTrace, sourceCodeLocation);
 
@@ -37,6 +37,8 @@ WI.LayoutTimelineRecord = class LayoutTimelineRecord extends WI.TimelineRecord
 
         this._eventType = eventType;
         this._quad = quad || null;
+        this._area = area || null;
+        this._domNode = domNode || null;
     }
 
     // Static
@@ -58,6 +60,10 @@ WI.LayoutTimelineRecord = class LayoutTimelineRecord extends WI.TimelineRecord
             return WI.repeatedUIString.timelineRecordPaint();
         case WI.LayoutTimelineRecord.EventType.Composite:
             return WI.repeatedUIString.timelineRecordComposite();
+        case WI.LayoutTimelineRecord.EventType.FirstContentfulPaint:
+            return WI.UIString("First Contentful Paint");
+        case WI.LayoutTimelineRecord.EventType.LargestContentfulPaint:
+            return WI.UIString("Largest Contentful Paint");
         }
     }
 
@@ -67,7 +73,7 @@ WI.LayoutTimelineRecord = class LayoutTimelineRecord extends WI.TimelineRecord
     {
         let {eventType, startTime, endTime, stackTrace, sourceCodeLocation, quad} = json;
         quad = quad ? WI.Quad.fromJSON(quad) : null;
-        return new WI.LayoutTimelineRecord(eventType, startTime, endTime, stackTrace, sourceCodeLocation, quad);
+        return new WI.LayoutTimelineRecord(eventType, startTime, endTime, stackTrace, sourceCodeLocation, {quad});
     }
 
     toJSON()
@@ -103,12 +109,17 @@ WI.LayoutTimelineRecord = class LayoutTimelineRecord extends WI.TimelineRecord
 
     get area()
     {
-        return this.width * this.height;
+        return this._area ?? this.width * this.height;;
     }
 
     get quad()
     {
         return this._quad;
+    }
+
+    get domNode()
+    {
+        return this._domNode;
     }
 
     saveIdentityToCookie(cookie)
@@ -126,7 +137,9 @@ WI.LayoutTimelineRecord.EventType = {
     ForcedLayout: "forced-layout",
     Layout: "layout",
     Paint: "paint",
-    Composite: "composite"
+    Composite: "composite",
+    FirstContentfulPaint: "first-contentful-paint",
+    LargestContentfulPaint: "largest-contentful-paint",
 };
 
 WI.LayoutTimelineRecord.TypeIdentifier = "layout-timeline-record";

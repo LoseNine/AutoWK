@@ -422,17 +422,15 @@ WI.TimelineRecording = class TimelineRecording extends WI.Object
 
     updateCallingContextTrees(target, stackTraces, sampleDurations)
     {
-        if (target === WI.mainTarget || WI.settings.experimentalEnableWorkerTimelineRecording.value) {
-            let exportDataSamples = this._exportDataSamplesForTarget.getOrInitialize(target, () => {
-                return {
-                    target: target.exportData(),
-                    stackTraces: [],
-                    durations: [],
-                };
-            });
-            exportDataSamples.stackTraces.pushAll(stackTraces);
-            exportDataSamples.durations.pushAll(sampleDurations);
-        }
+        let exportDataSamples = this._exportDataSamplesForTarget.getOrInsertComputed(target, () => {
+            return {
+                target: target.exportData(),
+                stackTraces: [],
+                durations: [],
+            };
+        });
+        exportDataSamples.stackTraces.pushAll(stackTraces);
+        exportDataSamples.durations.pushAll(sampleDurations);
 
         let scriptTimeline = this._timelines.get(WI.TimelineRecord.Type.Script);
         console.assert(scriptTimeline, this._timelines);

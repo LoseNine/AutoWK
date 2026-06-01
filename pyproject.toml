@@ -1,0 +1,46 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "autowk"
+version = "0.4.3"
+description = "基于 WebKit 的 Windows 自动化浏览器框架"
+readme = "README.md"
+requires-python = ">=3.8"
+license = "BSD-2-Clause"
+license-files = ["LICENSE", "NOTICE", "THIRD_PARTY_NOTICES.md", "licenses/*"]
+authors = [
+    { name = "ruyi", email = "losenine@163.com" }
+]
+dependencies = [
+    "psutil>=5.9.0",
+]
+keywords = ["webkit", "browser", "automation", "webdriver", "windows"]
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3 :: Only",
+    "Operating System :: Microsoft :: Windows",
+]
+
+[project.urls]
+Homepage = "https://github.com/LoseNine/AutoWK"
+Issues = "https://github.com/LoseNine/AutoWK/issues"
+
+[project.scripts]
+autowk = "autowk.cli:main"
+
+[tool.setuptools]
+include-package-data = true
+
+packages = [
+    "autowk",
+    "autowk.bin",
+    "autowk.bin.testapiScripts",
+    "autowk.bin.testapiScripts.dependencyListTests",
+]
+
+[tool.setuptools.package-data]
+autowk = [
+    "bin/**/*",
+]

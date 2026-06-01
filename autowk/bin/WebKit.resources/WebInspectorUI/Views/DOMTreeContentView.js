@@ -188,7 +188,7 @@ WI.DOMTreeContentView = class DOMTreeContentView extends WI.ContentView
         while (treeElement && !treeElement.root) {
             // The close tag is contained within the element it closes. So skip it since we don't want to
             // show the same node twice in the hierarchy.
-            if (treeElement.isCloseTag()) {
+            if (treeElement.isElementCloseTag) {
                 treeElement = treeElement.parent;
                 continue;
             }
@@ -423,7 +423,7 @@ WI.DOMTreeContentView = class DOMTreeContentView extends WI.ContentView
     {
         super.sizeDidChange();
 
-        this._domTreeOutline.selectDOMNode(this._domTreeOutline.selectedDOMNode());
+        this._domTreeOutline.selectedTreeElement?.reveal();
     }
 
     layout()
@@ -518,6 +518,22 @@ WI.DOMTreeContentView = class DOMTreeContentView extends WI.ContentView
             }, WI.settings.enabledDOMTreeBadgeTypes.value.includes(WI.DOMTreeElement.BadgeType.Grid));
         }
 
+        // COMPATIBILITY (macOS X.Y, iOS X.Y): `Subgrid` value for `CSS.LayoutFlag` did not exist yet.
+        if (InspectorBackend.Enum.CSS?.LayoutFlag?.Subgrid) {
+            contextMenu.appendCheckboxItem(WI.unlocalizedString("subgrid"), () => {
+                WI.settings.enabledDOMTreeBadgeTypes.value.toggleIncludes(WI.DOMTreeElement.BadgeType.Subgrid);
+                WI.settings.enabledDOMTreeBadgeTypes.save();
+            }, WI.settings.enabledDOMTreeBadgeTypes.value.includes(WI.DOMTreeElement.BadgeType.Subgrid));
+        }
+
+        // COMPATIBILITY (macOS X.Y, iOS X.Y): `GridLanes` value for `CSS.LayoutFlag` did not exist yet.
+        if (InspectorBackend.Enum.CSS?.LayoutFlag?.GridLanes) {
+            contextMenu.appendCheckboxItem(WI.unlocalizedString("grid-lanes"), () => {
+                WI.settings.enabledDOMTreeBadgeTypes.value.toggleIncludes(WI.DOMTreeElement.BadgeType.GridLanes);
+                WI.settings.enabledDOMTreeBadgeTypes.save();
+            }, WI.settings.enabledDOMTreeBadgeTypes.value.includes(WI.DOMTreeElement.BadgeType.GridLanes));
+        }
+
         // COMPATIBILITY (macOS 13.0, iOS 16.0): `DOM.showFlexOverlay` did not exist yet.
         if (InspectorBackend.hasCommand("DOM.showFlexOverlay")) {
             contextMenu.appendCheckboxItem(WI.unlocalizedString("flex"), () => {
@@ -542,8 +558,8 @@ WI.DOMTreeContentView = class DOMTreeContentView extends WI.ContentView
             }, WI.settings.enabledDOMTreeBadgeTypes.value.includes(WI.DOMTreeElement.BadgeType.Scrollable));
         }
 
-        // COMPATIBILITY (iOS X.Y, macOS X.Y): `SlotAssigned` value for `CSS.LayoutFlag` did not exist yet.
-        // COMPATIBILITY (iOS X.Y, macOS X.Y): `SlotFilled` value for `CSS.LayoutFlag` did not exist yet.
+        // COMPATIBILITY (macOS 15.4, iOS 18.4): `SlotAssigned` value for `CSS.LayoutFlag` did not exist yet.
+        // COMPATIBILITY (macOS 15.4, iOS 18.4): `SlotFilled` value for `CSS.LayoutFlag` did not exist yet.
         if (InspectorBackend.Enum.CSS?.LayoutFlag?.SlotAssigned && InspectorBackend.Enum.CSS?.LayoutFlag?.SlotFilled) {
             let checked = WI.settings.enabledDOMTreeBadgeTypes.value.some((enabledDOMTreeBadgeType) => enabledDOMTreeBadgeType === WI.DOMTreeElement.BadgeType.SlotAssigned || enabledDOMTreeBadgeType === WI.DOMTreeElement.BadgeType.SlotFilled);
             contextMenu.appendCheckboxItem(WI.UIString("Slot", "Title for a badge applied to HTMLSlotElement that have assigned nodes or nodes that are assigned to HTMLSlotElement."), () => {

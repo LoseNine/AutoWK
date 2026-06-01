@@ -16,9 +16,9 @@ class AutoWK(AutoWKBase):
                  proxyUsername='',proxyPassword='',
                  userDataDir='',fpfile='',
                  userAgent='',headless=False,enableListen=False,networkListenPort=0,
-                 options: Options = None):
+                 options: Options = None, timeout=30):
 
-        super().__init__(host, port)
+        super().__init__(host, port, timeout=timeout)
 
         if options:
             self.launch_webkit(
@@ -86,13 +86,13 @@ class AutoWK(AutoWKBase):
         return True
 
     def back(self):
-        return self.request("POST", f"/session/{self.session_id}/back")
+        return self.request("POST", f"/session/{self.session_id}/back", {})
 
     def forward(self):
-        return self.request("POST", f"/session/{self.session_id}/forward")
+        return self.request("POST", f"/session/{self.session_id}/forward", {})
 
     def refresh(self):
-        return self.request("POST", f"/session/{self.session_id}/refresh")
+        return self.request("POST", f"/session/{self.session_id}/refresh", {})
 
     def get_title(self):
         return self.request("GET", f"/session/{self.session_id}/title")["value"]
@@ -101,10 +101,10 @@ class AutoWK(AutoWKBase):
         return self.request("GET", f"/session/{self.session_id}/source")["value"]
 
     def maximize_window(self):
-        return self.request("POST", f"/session/{self.session_id}/window/maximize")
+        return self.request("POST", f"/session/{self.session_id}/window/maximize", {})
 
     def minimize_window(self):
-        return self.request("POST", f"/session/{self.session_id}/window/minimize")
+        return self.request("POST", f"/session/{self.session_id}/window/minimize", {})
     def get_window_rect(self):
         return self.request("GET", f"/session/{self.session_id}/window/rect")["value"]
 
@@ -132,12 +132,14 @@ class AutoWK(AutoWKBase):
         return self.request("POST", f"/session/{self.session_id}/window/new", {"type": window_type})
 
 
-    def execute_script(self, script, args=[]):
+    def execute_script(self, script, args=None):
+        if args is None:
+            args = []
         response = self.request("POST", f"/session/{self.session_id}/execute/sync", {
             "script": script,
             "args": args
         })
-        return response["value"]  # 直接返回执行结果
+        return response["value"]
 
     def get_closed_shadow_root(self,css_selector):
         result=self.execute_script("""
@@ -156,14 +158,16 @@ class AutoWK(AutoWKBase):
             f.write(base64.b64decode(data))
 
     def switch_to_frame(self, iframe):
-        """切换到 iframe（通过元素 ID 或 None 返回 top-level）"""
+        """Switch to iframe by element id or None."""
         if isinstance(iframe, Element):
             payload = {"id": {"element-6066-11e4-a52e-4f735466cecf": iframe.element_id}}
+        elif iframe is None:
+            payload = {"id": None}
         else:
             payload = {"id": {"element-6066-11e4-a52e-4f735466cecf": iframe}}
         return self.request("POST", f"/session/{self.session_id}/frame", payload)
     def switch_to_parent_frame(self):
-        return self.request("POST", f"/session/{self.session_id}/frame/parent")
+        return self.request("POST", f"/session/{self.session_id}/frame/parent", {})
 
     def find_element_by_css_selector(self, selector):
         result = self.request("POST", f"/session/{self.session_id}/element", {"using": "css selector", "value": selector})
@@ -182,7 +186,7 @@ class AutoWK(AutoWKBase):
         return [Element(self, el["element-6066-11e4-a52e-4f735466cecf"]) for el in result["value"]]
 
     def click_pos_by_js(self, x, y):
-        """已经优化过isTrusted"""
+        """Compatibility helper."""
         script = f"""
     
         function simulateClick(x, y) {{
@@ -215,7 +219,7 @@ class AutoWK(AutoWKBase):
         self.execute_script(script)
 
     def click_pos_by_win(self, x, y):
-        """和屏幕分辨率有关，无法点击请调整分辨率100%"""
+        """Compatibility helper."""
         payload = {"actions": [{"type": "pointer", "id": "mouse1", "parameters": {"pointerType": "mouse"}, "actions": [{"type": "pointerMove", "duration": 119, "x": x, "y": y, "origin": "viewport"}, {"type": "pointerDown", "button": 0}, {"type": "pointerUp", "button": 0}]}]}
         return self.request("POST", f"/session/{self.session_id}/actions", payload)
 
@@ -229,7 +233,7 @@ class AutoWK(AutoWKBase):
                         "pointerType": "mouse"
                     },
                     "actions": [
-                        # 移动到起点
+                        # Internal action step.
                         {
                             "type": "pointerMove",
                             "duration": 0,
@@ -237,20 +241,20 @@ class AutoWK(AutoWKBase):
                             "y": start_y,
                             "origin": "viewport"
                         },
-                        # 按下鼠标左键
+                        # Internal action step.
                         {
                             "type": "pointerDown",
                             "button": 0
                         },
-                        # 拖拽到终点
+                        # Internal action step.
                         {
                             "type": "pointerMove",
-                            "duration": 500,  # 拖拽过程，500ms
+                            "duration": 500,
                             "x": end_x,
                             "y": end_y,
                             "origin": "viewport"
                         },
-                        # 松开鼠标左键
+                        # Internal action step.
                         {
                             "type": "pointerUp",
                             "button": 0
@@ -262,16 +266,15 @@ class AutoWK(AutoWKBase):
         return self.request("POST", f"/session/{self.session_id}/actions", payload)
 
     def drag_and_drop_pos_human(self, start_x, start_y, end_x, end_y, num_steps=30):
-        # 控制点靠近直线，只有小幅度偏移
+        # Internal action step.
         mid_x = (start_x + end_x) / 2
         mid_y = (start_y + end_y) / 2
-        offset_x = random.randint(-30, 30)  # 仅小幅度，模拟人类小调整
+        offset_x = random.randint(-30, 30)
         offset_y = random.randint(-30, 30)
 
         control_x = mid_x + offset_x
         control_y = mid_y + offset_y
 
-        num_steps = 30  # 更多步数，更平滑
         actions = [
             {
                 "type": "pointerMove",
@@ -287,20 +290,20 @@ class AutoWK(AutoWKBase):
         ]
 
         for i in range(1, num_steps + 1):
-            # 速度曲线（ease-in-out）
+            # Internal action step.
             t = i / num_steps
-            t = 0.5 * (1 - math.cos(math.pi * t))  # 使用cos函数制造加速-减速效果
+            t = 0.5 * (1 - math.cos(math.pi * t))
 
-            # 贝塞尔曲线插值
+            # Internal action step.
             x = int((1 - t) ** 2 * start_x + 2 * (1 - t) * t * control_x + t ** 2 * end_x)
             y = int((1 - t) ** 2 * start_y + 2 * (1 - t) * t * control_y + t ** 2 * end_y)
 
-            # 动态调整每步持续时间
-            # 开始慢 -> 中间快 -> 结束慢
+            # Internal action step.
+            # Internal action step.
             if i < num_steps * 0.2 or i > num_steps * 0.8:
-                duration = random.randint(20, 40)  # 边缘慢一点
+                duration = random.randint(20, 40)
             else:
-                duration = random.randint(5, 15)  # 中间快一点
+                duration = random.randint(5, 15)
 
             actions.append({
                 "type": "pointerMove",

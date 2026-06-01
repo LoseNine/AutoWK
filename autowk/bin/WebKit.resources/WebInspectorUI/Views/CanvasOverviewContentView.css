@@ -203,10 +203,10 @@
 }
 
 .navigation-bar > .item.canvas-recording-auto-capture > label > input {
-    width: 1.5em;
-    min-width: 1.5em;
+    min-width: 30px;
     margin: 0 4px;
-    text-align: center;
+    field-sizing: content;
+    font-variant-numeric: tabular-nums;
 }
 
 @media (prefers-color-scheme: dark) {

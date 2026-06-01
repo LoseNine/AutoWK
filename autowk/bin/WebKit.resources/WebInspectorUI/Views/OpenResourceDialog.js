@@ -195,8 +195,11 @@ WI.OpenResourceDialog = class OpenResourceDialog extends WI.Dialog
         this._addScriptsForTarget(WI.mainTarget);
 
         for (let target of WI.targets) {
-            if (target !== WI.mainTarget)
-                this._addResourcesForTarget(target);
+            if (target !== WI.mainTarget) {
+                // FIXME <https://webkit.org/b/298909> Add Debugger support for frame targets.
+                if (!(target instanceof WI.FrameTarget))
+                    this._addResourcesForTarget(target);
+            }
         }
 
         this._addLocalResourceOverrides();
@@ -339,6 +342,10 @@ WI.OpenResourceDialog = class OpenResourceDialog extends WI.Dialog
 
     _addResource(resource, suppressFilterUpdate)
     {
+        // FIXME <https://webkit.org/b/298909> Remove this null-check after implementing the Debugger domain for frame targets.
+        if (!resource)
+            return;
+
         if (!this.representedObjectIsValid(resource))
             return;
 
@@ -396,7 +403,7 @@ WI.OpenResourceDialog = class OpenResourceDialog extends WI.Dialog
         const suppressFilterUpdate = true;
 
         let targetData = WI.debuggerManager.dataForTarget(target);
-        for (let script of targetData.scripts) {
+        for (let script of targetData?.scripts || []) {
             if (script.anonymous || script.resource || script.dynamicallyAddedScriptElement)
                 continue;
             if (!WI.settings.debugShowConsoleEvaluations.value && isWebInspectorConsoleEvaluationScript(script.sourceURL))

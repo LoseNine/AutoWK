@@ -1,0 +1,36 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>AutoWK Nested And Pointer Fixture</title>
+  <style>
+    body { font-family: sans-serif; margin: 40px; }
+    #drag-target, #drop-target {
+      width: 120px;
+      height: 80px;
+      border: 1px solid #333;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      margin-right: 24px;
+      user-select: none;
+    }
+  </style>
+</head>
+<body>
+  <section id="container">
+    <article class="card" data-role="card">
+      <h1>Nested Fixture</h1>
+      <p class="message">Ready</p>
+      <button id="nested-button" type="button">Nested button</button>
+    </article>
+  </section>
+  <div id="drag-target">Drag</div>
+  <div id="drop-target">Drop</div>
+  <script>
+    document.querySelector("#nested-button").addEventListener("click", () => {
+      document.querySelector(".message").textContent = "Clicked";
+    });
+  </script>
+</body>
+</html>

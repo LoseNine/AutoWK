@@ -74,6 +74,11 @@ WI.LayerDetailsSidebarPanel = class LayerDetailsSidebarPanel extends WI.DetailsS
     {
         this._layerIdToSelect = null;
 
+        if (!this._dataGrid) {
+            this._layerIdToSelect = layerId;
+            return;
+        }
+
         let node = this._dataGridNodesByLayerId.get(layerId);
         if (node === this._dataGrid.selectedNode)
             return;

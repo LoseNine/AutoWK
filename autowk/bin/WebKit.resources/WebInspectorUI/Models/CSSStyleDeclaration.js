@@ -57,6 +57,28 @@ WI.CSSStyleDeclaration = class CSSStyleDeclaration extends WI.Object
 
     // Public
 
+    static stringIdForStyleId(styleId, {inherited, pseudoId, type, node} = {})
+    {
+        if (!styleId)
+            return "";
+
+        let result = styleId.styleSheetId + "/" + styleId.ordinal;
+
+        if (pseudoId)
+            result += ":" + pseudoId;
+
+        if (inherited !== undefined)
+            result += ":" + (inherited ? "I" : "N");
+
+        if (node)
+            result += ":" + node.id;
+
+        if (type === WI.CSSStyleDeclaration.Type.Attribute && node)
+            result += ":attribute";
+
+        return result;
+    }
+
     get initialState() { return this._initialState; }
 
     get id()
@@ -66,10 +88,7 @@ WI.CSSStyleDeclaration = class CSSStyleDeclaration extends WI.Object
 
     get stringId()
     {
-        if (this._id)
-            return this._id.styleSheetId + "/" + this._id.ordinal;
-        else
-            return "";
+        return WI.CSSStyleDeclaration.stringIdForStyleId(this._id);
     }
 
     get ownerStyleSheet()
@@ -179,8 +198,7 @@ WI.CSSStyleDeclaration = class CSSStyleDeclaration extends WI.Object
             return;
         }
 
-        // Allow updates from the backend when text matches because `properties` may contain warnings that need to be shown.
-        if (this._locked && !options.forceUpdate && text !== this._text)
+        if (this._locked && !options.forceUpdate)
             return;
 
         text = text || "";
@@ -344,6 +362,15 @@ WI.CSSStyleDeclaration = class CSSStyleDeclaration extends WI.Object
         return [];
     }
 
+    get isStartingStyle()
+    {
+        for (let grouping of this.groupings) {
+            if (grouping.isStartingStyle)
+                return true;
+        }
+        return false;
+    }
+
     get selectorText()
     {
         if (this._ownerRule)
@@ -384,7 +411,7 @@ WI.CSSStyleDeclaration = class CSSStyleDeclaration extends WI.Object
             let openParenthesis = 0;
             for (let i = 0; i < tokens.length; i++) {
                 let token = tokens[i];
-                if (token.value === "var" && token.type && token.type.includes("atom")) {
+                if (token.value === "var" && token.type && /\bvariable\b/.test(token.type) && /\bcallee\b/.test(token.type)) {
                     if (isNaN(startIndex)) {
                         startIndex = i;
                         openParenthesis = 0;

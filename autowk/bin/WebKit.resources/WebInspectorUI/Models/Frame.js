@@ -219,6 +219,7 @@ WI.Frame = class Frame extends WI.Object
             this._executionContextList.clear();
             this.dispatchEventToListeners(WI.Frame.Event.ExecutionContextsCleared, {committingProvisionalLoad: !!committingProvisionalLoad, contexts});
         }
+        this._executionContextPromise = null;
     }
 
     addExecutionContext(context)
@@ -229,6 +230,14 @@ WI.Frame = class Frame extends WI.Object
 
         if (this._executionContextList.pageExecutionContext === context)
             this.dispatchEventToListeners(WI.Frame.Event.PageExecutionContextChanged);
+    }
+
+    ensurePageExecutionContext()
+    {
+        this._executionContextPromise ||= this.pageExecutionContext 
+            ? Promise.resolve() 
+            : this.awaitEvent(WI.Frame.Event.PageExecutionContextChanged);
+        return this._executionContextPromise;
     }
 
     get mainResource()

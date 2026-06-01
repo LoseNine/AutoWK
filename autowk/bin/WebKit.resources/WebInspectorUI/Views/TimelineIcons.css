@@ -89,6 +89,10 @@
     content: url(../Images/TypeIcons.svg#RenderingFrame-light);
 }
 
+.performance-entry .icon {
+    content: url(../Images/TypeIcons.svg#PerformanceEntry-light);
+}
+
 .api-record .icon {
     content: url(../Images/TypeIcons.svg#TimelineRecordAPI-light);
 }
@@ -204,6 +208,10 @@
 
     .rendering-frame-record .icon {
         content: url(../Images/TypeIcons.svg#RenderingFrame-dark);
+    }
+
+    .performance-entry .icon {
+        content: url(../Images/TypeIcons.svg#PerformanceEntry-dark);
     }
 
     .api-record .icon {

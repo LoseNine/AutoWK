@@ -551,22 +551,27 @@ WI.Recording = class Recording extends WI.Object
     createContext()
     {
         let createCanvasContext = (type) => {
-            let canvas = document.createElement("canvas");
+            let element = document.createElement("canvas");
             if ("width" in this._initialState.attributes)
-                canvas.width = this._initialState.attributes.width;
+                element.width = this._initialState.attributes.width;
             if ("height" in this._initialState.attributes)
-                canvas.height = this._initialState.attributes.height;
-            return canvas.getContext(type, ...this._initialState.parameters);
+                element.height = this._initialState.attributes.height;
+            return {
+                context: element.getContext(type, ...this._initialState.parameters),
+                element,
+            };
         };
         let createOffscreenCanvasContext = (type) => {
-            let width = 1;
-            let height = 1;
+            let element = document.createElement("canvas");
             if ("width" in this._initialState.attributes)
-                width = this._initialState.attributes.width;
+                element.width = this._initialState.attributes.width;
             if ("height" in this._initialState.attributes)
-                height = this._initialState.attributes.height;
-            let canvas = new OffscreenCanvas(width, height);
-            return canvas.getContext(type, ...this._initialState.parameters);
+                element.height = this._initialState.attributes.height;
+            let canvas = element.transferControlToOffscreen();
+            return {
+                context: canvas.getContext(type, ...this._initialState.parameters),
+                element,
+            };
         };
 
         switch (this._type) {
@@ -888,7 +893,7 @@ WI.Recording = class Recording extends WI.Object
     async _process()
     {
         if (!this._processContext) {
-            this._processContext = this.createContext();
+            this._processContext = this.createContext().context;
 
             if (this.isCanvas2D) {
                 let initialContent = await WI.ImageUtilities.promisifyLoad(this._initialState.content);

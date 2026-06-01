@@ -130,26 +130,6 @@ Object.defineProperty(Map.prototype, "take",
     }
 });
 
-Object.defineProperty(Map.prototype, "getOrInitialize",
-{
-    value(key, initialValue)
-    {
-        console.assert(initialValue !== undefined, "getOrInitialize should not be used with undefined.");
-
-        let value = this.get(key);
-        if (value)
-            return value;
-
-        if (typeof initialValue === "function")
-            initialValue = initialValue(key);
-
-        console.assert(initialValue !== undefined, "getOrInitialize should not be used with undefined.");
-
-        this.set(key, initialValue);
-        return initialValue;
-    }
-});
-
 Object.defineProperty(Map.prototype, "firstKey",
 {
     get()
@@ -171,26 +151,6 @@ Object.defineProperty(Map.prototype, "lastKey",
     get()
     {
         return Array.from(this.keys()).lastValue;
-    }
-});
-
-Object.defineProperty(WeakMap.prototype, "getOrInitialize",
-{
-    value(key, initialValue)
-    {
-        console.assert(initialValue !== undefined, "getOrInitialize should not be used with undefined.");
-
-        let value = this.get(key);
-        if (value)
-            return value;
-
-        if (typeof initialValue === "function")
-            initialValue = initialValue(key);
-
-        console.assert(initialValue !== undefined, "getOrInitialize should not be used with undefined.");
-
-        this.set(key, initialValue);
-        return initialValue;
     }
 });
 
@@ -522,29 +482,6 @@ Object.defineProperty(DocumentFragment.prototype, "createChild",
     value: Element.prototype.createChild
 });
 
-(function() {
-    const fontSymbol = Symbol("font");
-
-    Object.defineProperty(HTMLInputElement.prototype, "autosize",
-    {
-        value(extra = 0)
-        {
-            extra += 6; // UserAgent styles add 1px padding and 2px border.
-            if (this.type === "number")
-                extra += 13; // Number input inner spin button width.
-            extra += 2; // Add extra pixels for the cursor.
-
-            WI.ImageUtilities.scratchCanvasContext2D((context) => {
-                this[fontSymbol] ||= window.getComputedStyle(this).font;
-
-                context.font = this[fontSymbol];
-                let textMetrics = context.measureText(this.value || this.placeholder);
-                this.style.setProperty("width", (textMetrics.width + extra) + "px");
-            });
-        },
-    });
-})();
-
 Object.defineProperty(HTMLCollection.prototype, "indexOf",
 {
     value(element)
@@ -825,6 +762,8 @@ Object.defineProperty(String.prototype, "isLowerCase",
 {
     value()
     {
+        "use strict";
+
         return /^[a-z]+$/.test(this);
     }
 });
@@ -833,6 +772,8 @@ Object.defineProperty(String.prototype, "isUpperCase",
 {
     value()
     {
+        "use strict";
+
         return /^[A-Z]+$/.test(this);
     }
 });
@@ -841,6 +782,8 @@ Object.defineProperty(String.prototype, "isJSON",
 {
     value(predicate)
     {
+        "use strict";
+
         try {
             let json = JSON.parse(this);
             return !predicate || predicate(json);
@@ -857,7 +800,7 @@ Object.defineProperty(String.prototype, "truncateStart",
 
         if (this.length <= maxLength)
             return this;
-        return ellipsis + this.substr(this.length - maxLength + 1);
+        return ellipsis + this.substring(this.length - maxLength + 1);
     }
 });
 
@@ -871,7 +814,7 @@ Object.defineProperty(String.prototype, "truncateMiddle",
             return this;
         var leftHalf = maxLength >> 1;
         var rightHalf = maxLength - leftHalf - 1;
-        return this.substr(0, leftHalf) + ellipsis + this.substr(this.length - rightHalf, rightHalf);
+        return this.substring(0, leftHalf) + ellipsis + this.substring(this.length - rightHalf);
     }
 });
 
@@ -883,7 +826,7 @@ Object.defineProperty(String.prototype, "truncateEnd",
 
         if (this.length <= maxLength)
             return this;
-        return this.substr(0, maxLength - 1) + ellipsis;
+        return this.substring(0, maxLength - 1) + ellipsis;
     }
 });
 
@@ -909,6 +852,8 @@ Object.defineProperty(String.prototype, "collapseWhitespace",
 {
     value()
     {
+        "use strict";
+
         return this.replace(/[\s\xA0]+/g, " ");
     }
 });
@@ -917,6 +862,8 @@ Object.defineProperty(String.prototype, "removeWhitespace",
 {
     value()
     {
+        "use strict";
+
         return this.replace(/[\s\xA0]+/g, "");
     }
 });
@@ -925,6 +872,8 @@ Object.defineProperty(String.prototype, "escapeCharacters",
 {
     value(charactersToEscape)
     {
+        "use strict";
+
         if (!charactersToEscape)
             return this.valueOf();
 
@@ -956,6 +905,8 @@ Object.defineProperty(String.prototype, "escapeForRegExp",
 {
     value()
     {
+        "use strict";
+
         return this.escapeCharacters("^[]{}()\\.$*+?|");
     }
 });
@@ -964,6 +915,8 @@ Object.defineProperty(String.prototype, "capitalize",
 {
     value()
     {
+        "use strict";
+
         return this.charAt(0).toUpperCase() + this.slice(1);
     }
 });
@@ -972,6 +925,8 @@ Object.defineProperty(String.prototype, "extendedLocaleCompare",
 {
     value(other)
     {
+        "use strict";
+
         return this.localeCompare(other, undefined, {numeric: true});
     }
 });
@@ -1140,7 +1095,8 @@ Object.defineProperty(String, "standardFormatters",
             let options = {
                 minimumFractionDigits: token.precision,
                 maximumFractionDigits: token.precision,
-                useGrouping: false
+                useGrouping: false,
+                trailingZeroDisplay: "stripIfInteger",
             };
             return value.toLocaleString(undefined, options);
         },
@@ -1227,6 +1183,8 @@ Object.defineProperty(String.prototype, "format",
 {
     value()
     {
+        "use strict";
+
         return String.format(this, arguments, String.standardFormatters, "", function(a, b) { return a + b; }).formattedResult;
     }
 });
@@ -1235,6 +1193,8 @@ Object.defineProperty(String.prototype, "insertWordBreakCharacters",
 {
     value()
     {
+        "use strict";
+
         // Add zero width spaces after characters that are good to break after.
         // Otherwise a string with no spaces will not break and overflow its container.
         // This is mainly used on URL strings, so the characters are tailored for URLs.
@@ -1246,57 +1206,10 @@ Object.defineProperty(String.prototype, "removeWordBreakCharacters",
 {
     value()
     {
+        "use strict";
+
         // Undoes what insertWordBreakCharacters did.
         return this.replace(/\u200b/g, "");
-    }
-});
-
-Object.defineProperty(String.prototype, "levenshteinDistance",
-{
-    value(s)
-    {
-        var m = this.length;
-        var n = s.length;
-        var d = new Array(m + 1);
-
-        for (var i = 0; i <= m; ++i) {
-            d[i] = new Array(n + 1);
-            d[i][0] = i;
-        }
-
-        for (var j = 0; j <= n; ++j)
-            d[0][j] = j;
-
-        for (var j = 1; j <= n; ++j) {
-            for (var i = 1; i <= m; ++i) {
-                if (this[i - 1] === s[j - 1])
-                    d[i][j] = d[i - 1][j - 1];
-                else {
-                    var deletion = d[i - 1][j] + 1;
-                    var insertion = d[i][j - 1] + 1;
-                    var substitution = d[i - 1][j - 1] + 1;
-                    d[i][j] = Math.min(deletion, insertion, substitution);
-                }
-            }
-        }
-
-        return d[m][n];
-    }
-});
-
-Object.defineProperty(String.prototype, "toCamelCase",
-{
-    value()
-    {
-        return this.toLowerCase().replace(/[^\w]+(\w)/g, (match, group) => group.toUpperCase());
-    }
-});
-
-Object.defineProperty(String.prototype, "hasMatchingEscapedQuotes",
-{
-    value()
-    {
-        return /^\"(?:[^\"\\]|\\.)*\"$/.test(this) || /^\'(?:[^\'\\]|\\.)*\'$/.test(this);
     }
 });
 
@@ -1346,7 +1259,7 @@ Object.defineProperty(Number, "percentageString",
 {
     value(fraction, precision = 1)
     {
-        return fraction.toLocaleString(undefined, {minimumFractionDigits: precision, style: "percent"});
+        return fraction.toLocaleString(undefined, {minimumFractionDigits: precision, style: "percent", trailingZeroDisplay: "stripIfInteger"});
     }
 });
 
@@ -1599,12 +1512,14 @@ function simpleGlobStringToRegExp(globString, regExpFlags)
         // Replace all unescaped asterisks with ".*".
         regexString = regexString.replace(unescapedAsteriskRegex, "$1.*");
 
-        // Match edge boundaries when there is an asterisk to better meet the expectations
-        // of the user. When someone types "*.js" they don't expect "foo.json" to match. They
-        // would only expect that if they type "*.js*". We use \b (instead of ^ and $) to allow
-        // matches inside paths or URLs, so "ba*.js" will match "foo/bar.js" but not "boo/bbar.js".
-        // When there isn't an asterisk the regexString is just a substring search.
-        regexString = "\\b" + regexString + "\\b";
+        if (WI.settings.experimentalUseStrictCheckForGlobMatching.value) {
+            // Match edge boundaries when there is an asterisk to better meet the expectations
+            // of the user. When someone types "*.js" they don't expect "foo.json" to match. They
+            // would only expect that if they type "*.js*". We use \b (instead of ^ and $) to allow
+            // matches inside paths or URLs, so "ba*.js" will match "foo/bar.js" but not "boo/bbar.js".
+            // When there isn't an asterisk the regexString is just a substring search.
+            regexString = "\\b" + regexString + "\\b";
+        }
     }
 
     return new RegExp(regexString, regExpFlags);

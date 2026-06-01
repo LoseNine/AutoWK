@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2007, 2013, 2015 Apple Inc.  All rights reserved.
+ * Copyright (C) 2007, 2013, 2015 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -104,18 +104,6 @@ WI.TreeElement = class TreeElement extends WI.Object
     set title(x)
     {
         this._title = x;
-        this._setListItemNodeContent();
-        this.didChange();
-    }
-
-    get titleHTML()
-    {
-        return this._titleHTML;
-    }
-
-    set titleHTML(x)
-    {
-        this._titleHTML = x;
         this._setListItemNodeContent();
         this.didChange();
     }
@@ -241,11 +229,7 @@ WI.TreeElement = class TreeElement extends WI.Object
         if (!this._listItemNode)
             return;
 
-        if (!this._titleHTML && !this._title)
-            this._listItemNode.removeChildren();
-        else if (typeof this._titleHTML === "string")
-            this._listItemNode.innerHTML = this._titleHTML;
-        else if (typeof this._title === "string")
+        if (typeof this._title === "string")
             this._listItemNode.textContent = this._title;
         else {
             this._listItemNode.removeChildren();
@@ -514,16 +498,16 @@ WI.TreeElement = class TreeElement extends WI.Object
             this.treeOutline.dispatchEventToListeners(WI.TreeOutline.Event.ElementRevealed, {element: this});
     }
 
-    revealed(ignoreHidden)
+    get revealed()
     {
-        if (!ignoreHidden && this.hidden)
+        if (this._hidden)
             return false;
 
         var currentAncestor = this.parent;
         while (currentAncestor && !currentAncestor.root) {
             if (!currentAncestor.expanded)
                 return false;
-            if (!ignoreHidden && currentAncestor.hidden)
+            if (currentAncestor._hidden)
                 return false;
             currentAncestor = currentAncestor.parent;
         }
@@ -606,7 +590,7 @@ WI.TreeElement = class TreeElement extends WI.Object
     traverseNextTreeElement(skipUnrevealed, stayWithin, dontPopulate, info)
     {
         function shouldSkip(element) {
-            return skipUnrevealed && !element.revealed(true);
+            return skipUnrevealed && !element.revealed;
         }
 
         var depthChange = 0;
@@ -639,7 +623,7 @@ WI.TreeElement = class TreeElement extends WI.Object
     traversePreviousTreeElement(skipUnrevealed, dontPopulate)
     {
         function shouldSkip(element) {
-            return skipUnrevealed && !element.revealed(true);
+            return skipUnrevealed && !element.revealed;
         }
 
         var element = this;

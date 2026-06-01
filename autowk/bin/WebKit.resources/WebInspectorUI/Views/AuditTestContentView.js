@@ -518,8 +518,6 @@ WI.AuditTestContentView = class AuditTestContentView extends WI.ContentView
     {
         console.assert(WI.auditManager.editing);
 
-        this._supportsInputElement.autosize(4);
-
         this._supportsWarningElement.removeChildren();
         if (this.representedObject.supports > WI.AuditTestBase.Version)
             this._supportsWarningElement.textContent = WI.UIString("too new to run in this Web Inspector", "too new to run in this Web Inspector @ Audit Tab", "Warning text shown if the version number in the 'supports' input is too new.");

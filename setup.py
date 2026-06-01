@@ -1,31 +1,18 @@
-from setuptools import setup, find_packages
+from setuptools import setup
 
-setup(
-    name="autowk",
-    version="0.4.2",
-    author="ruyi",
-    author_email="losenine@163.com",
-    description="基于WebKit的自动化浏览器框架",
-    long_description=open("README.md", encoding="utf-8").read(),
-    long_description_content_type="text/markdown",
-    url="https://github.com/LoseNine/AutoWK",
-    packages=find_packages(),
-    include_package_data=True,
-    package_data={
-        "autowk": [
-            "autowk/bin/*.exe",
-            "autowk/bin/*.dll",
-            "autowk/bin/testapiScripts/*",
-            "autowk/bin/WebKit.resources/*",
-        ],
-    },
-    install_requires=[
-        "psutil>=5.9.0",
-    ],
-    classifiers=[
-        "Programming Language :: Python :: 3",
-        "License :: OSI Approved :: BSD License",
-        "Operating System :: Microsoft :: Windows",
-    ],
-    python_requires=">=3.7",
-)
+
+try:
+    from wheel.bdist_wheel import bdist_wheel as _bdist_wheel
+except ImportError:  # pragma: no cover - wheel is declared as a build dependency.
+    _bdist_wheel = None
+
+
+if _bdist_wheel:
+    class bdist_wheel(_bdist_wheel):
+        def get_tag(self):
+            python, abi, _platform = super().get_tag()
+            return python, abi, "win_amd64"
+
+    setup(cmdclass={"bdist_wheel": bdist_wheel})
+else:
+    setup()

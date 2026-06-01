@@ -61,7 +61,7 @@ WI.LogContentView = class LogContentView extends WI.ContentView
         this._lastMessageView = null;
 
         this._findBanner = new WI.FindBanner(this, {alwaysShowing: true, className: "console"});
-        this._findBanner.visibilityPriority = WI.NavigationItem.VisibilityPriority.Low;
+        this._findBanner.visibilityPriority = WI.NavigationItem.VisibilityPriority.High;
         this._findBanner.targetElement = this.element;
 
         this._currentSearchQuery = "";
@@ -132,7 +132,7 @@ WI.LogContentView = class LogContentView extends WI.ContentView
         this._clearLogNavigationItem.visibilityPriority = WI.NavigationItem.VisibilityPriority.High;
         this._clearLogNavigationItem.addEventListener(WI.ButtonNavigationItem.Event.Clicked, this._clearLog, this);
 
-        this._showConsoleTabNavigationItem = new WI.ButtonNavigationItem("show-tab", WI.UIString("Show Console tab"), "Images/SplitToggleUp.svg", 16, 16);
+        this._showConsoleTabNavigationItem = new WI.ButtonNavigationItem("show-tab", WI.UIString("Show Console Tab"), "Images/SplitToggleUp.svg", 16, 16);
         this._showConsoleTabNavigationItem.visibilityPriority = WI.NavigationItem.VisibilityPriority.High;
         this._showConsoleTabNavigationItem.addEventListener(WI.ButtonNavigationItem.Event.Clicked, this._showConsoleTab, this);
 
@@ -255,9 +255,9 @@ WI.LogContentView = class LogContentView extends WI.ContentView
         console.assert(messageView.element instanceof Element);
         this._filterMessageElements([messageView.element]);
 
-        if (!this._isMessageVisible(messageView.element)) {
+        if (this._isMessageFilteredOut(messageView.element)) {
             this._immediatelyHiddenMessages.add(messageView);
-            this._showHiddenMessagesBannerIfNeeded();
+            this._updateHiddenMessagesBanner();
         }
 
         this._lastMessageView = messageView;
@@ -520,7 +520,8 @@ WI.LogContentView = class LogContentView extends WI.ContentView
 
     _previousMessageRepeatCountUpdated(event)
     {
-        if (!this._logViewController.updatePreviousMessageRepeatCount(event.data.count, event.data.timestamp))
+        let {target, count, timestamp} = event.data;
+        if (!this._logViewController.updatePreviousMessageRepeatCount(target, count, timestamp))
             return;
 
         if (this._lastMessageView) {
@@ -530,7 +531,7 @@ WI.LogContentView = class LogContentView extends WI.ContentView
             this._immediatelyHiddenMessages.add(this._lastMessageView);
         }
 
-        this._showHiddenMessagesBannerIfNeeded();
+        this._updateHiddenMessagesBanner();
     }
 
     _handleContextMenuEvent(event)
@@ -790,14 +791,22 @@ WI.LogContentView = class LogContentView extends WI.ContentView
         }
     }
 
+    _isMessageFilteredOut(messageElement) {
+
+        if (messageElement.classList.contains(WI.LogContentView.FilteredOutStyleClassName))
+            return true;
+
+        if (this.hasPerformedSearch && messageElement.classList.contains(WI.LogContentView.FilteredOutBySearchStyleClassName))
+            return true;
+
+        return false;
+    }
+
     _isMessageVisible(message)
     {
-        var node = message;
+        let node = message;
 
-        if (node.classList.contains(WI.LogContentView.FilteredOutStyleClassName))
-            return false;
-
-        if (this.hasPerformedSearch && node.classList.contains(WI.LogContentView.FilteredOutBySearchStyleClassName))
+        if (this._isMessageFilteredOut(node))
             return false;
 
         if (message.classList.contains("console-group-title"))
@@ -878,7 +887,7 @@ WI.LogContentView = class LogContentView extends WI.ContentView
         if (this._currentSearchQuery)
             this.performSearch(this._currentSearchQuery);
 
-        this._showHiddenMessagesBannerIfNeeded();
+        this._updateHiddenMessagesBanner();
 
         this._scopesWithMessages.clear();
         this._showOrHideConditionallyVisibleScopeBarItemsAsNeeded();
@@ -898,8 +907,13 @@ WI.LogContentView = class LogContentView extends WI.ContentView
 
     _garbageCollect()
     {
-        for (let target of WI.targets)
+        for (let target of WI.targets) {
+            // FIXME: <https://webkit.org/b/298984> Add Heap support for FrameTarget.
+            if (target instanceof WI.FrameTarget)
+                continue;
+
             target.HeapAgent.gc();
+        }
     }
 
     _messageShouldBeVisible(message)
@@ -918,15 +932,12 @@ WI.LogContentView = class LogContentView extends WI.ContentView
     _messageSourceBarSelectionDidChange(event)
     {
         this._filterMessageElements(this._allMessageElements());
-
-        this._showHiddenMessagesBannerIfNeeded();
     }
 
     _scopeBarSelectionDidChange(event)
     {
         this._filterMessageElements(this._allMessageElements());
 
-        this._showHiddenMessagesBannerIfNeeded();
         this._showOrHideConditionallyVisibleScopeBarItemsAsNeeded();
     }
 
@@ -942,7 +953,6 @@ WI.LogContentView = class LogContentView extends WI.ContentView
             let classList = messageElement.classList;
             if (visible) {
                 classList.remove(WI.LogContentView.FilteredOutStyleClassName);
-                this._immediatelyHiddenMessages.delete(messageElement.__messageView);
             } else {
                 this._selectedMessages.remove(messageElement);
                 classList.remove(WI.LogContentView.SelectedStyleClassName);
@@ -1184,6 +1194,7 @@ WI.LogContentView = class LogContentView extends WI.ContentView
         if (this._currentSearchQuery === "") {
             this.element.classList.remove(WI.LogContentView.SearchInProgressStyleClassName);
             this.dispatchEventToListeners(WI.ContentView.Event.NumberOfSearchResultsDidChange);
+            this._updateHiddenMessagesBanner();
             return;
         }
 
@@ -1192,6 +1203,7 @@ WI.LogContentView = class LogContentView extends WI.ContentView
             this._findBanner.numberOfResults = 0;
             this.element.classList.remove(WI.LogContentView.SearchInProgressStyleClassName);
             this.dispatchEventToListeners(WI.ContentView.Event.NumberOfSearchResultsDidChange);
+            this._updateHiddenMessagesBanner();
             return;
         }
 
@@ -1225,6 +1237,8 @@ WI.LogContentView = class LogContentView extends WI.ContentView
             this._selectedSearchMatch.highlight.classList.remove(WI.LogContentView.SelectedStyleClassName);
             this._selectedSearchMatch = null;
         }
+
+        this._updateHiddenMessagesBanner();
     }
 
     searchHidden()
@@ -1301,8 +1315,12 @@ WI.LogContentView = class LogContentView extends WI.ContentView
         this._provisionalMessages = [];
     }
 
-    _showHiddenMessagesBannerIfNeeded()
+    _updateHiddenMessagesBanner()
     {
+        for (let messageView of this._immediatelyHiddenMessages)
+            if (!this._isMessageFilteredOut(messageView.element))
+                this._immediatelyHiddenMessages.delete(messageView);
+
         if (!this._immediatelyHiddenMessages.size) {
             if (this._hiddenMessagesBannerElement)
                 this._hiddenMessagesBannerElement.remove();

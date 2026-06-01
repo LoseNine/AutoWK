@@ -41,7 +41,7 @@ WI.ScreenshotsInstrument = class ScreenshotsInstrument extends WI.Instrument
             return false;
 
         // COMPATIBILITY (iOS 15.4): Timeline.Instrument.Screenshot did not exist yet.
-        return InspectorBackend.Enum.Timeline.Instrument.Screenshot;
+        return InspectorBackend.Enum?.Timeline?.Instrument?.Screenshot;
     }
 
     // Protected

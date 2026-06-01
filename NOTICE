@@ -1,0 +1,14 @@
+AutoWK bundles a Windows WebKit runtime, supporting DLLs, and WebInspector
+resources.
+
+Third-party notices included in the runtime resources:
+
+- WebKit and JavaScriptCore: see THIRD_PARTY_NOTICES.md and the copied license
+  texts in licenses/.
+- CodeMirror: autowk/bin/WebKit.resources/WebInspectorUI/External/CodeMirror/LICENSE
+- Esprima: autowk/bin/WebKit.resources/WebInspectorUI/External/Esprima/LICENSE
+- three.js: autowk/bin/WebKit.resources/WebInspectorUI/External/three.js/LICENSE
+- CSSDocumentation: autowk/bin/WebKit.resources/WebInspectorUI/External/CSSDocumentation/LICENSE
+
+Keep NOTICE and THIRD_PARTY_NOTICES.md updated whenever bundled browser
+resources change.

@@ -132,11 +132,22 @@ body[dir=rtl] .timeline-record-bar > .segment:last-of-type {
     --record-bar-segment-border-color: hsl(0, 54%, 62%);
 }
 
+.timeline-record-bar.timeline-record-type-layout.invalidate-styles > .segment,
+.timeline-record-bar.timeline-record-type-layout.recalculate-styles > .segment {
+    background-color: hsl(23, 69%, 73%);
+    --record-bar-segment-border-color: hsl(11, 54%, 62%);
+}
+
 
 .timeline-record-bar.timeline-record-type-layout.paint > .segment,
 .timeline-record-bar.timeline-record-type-layout.composite > .segment {
     background-color: hsl(76, 49%, 60%);
     --record-bar-segment-border-color: hsl(79, 45%, 51%);
+}
+
+.timeline-record-bar.timeline-record-type-layout:is(.first-contentful-paint, .largest-contentful-paint) > .segment {
+    background-color: hsl(172, 48%, 75%);
+    --record-bar-segment-border-color: hsl(173, 46%, 45%);
 }
 
 .timeline-record-bar.timeline-record-type-script > .segment {
@@ -146,8 +157,8 @@ body[dir=rtl] .timeline-record-bar > .segment:last-of-type {
 
 .timeline-record-bar.timeline-record-type-script.garbage-collected > .segment,
 .timeline-record-bar.timeline-record-type-heap-allocations > .segment {
-    background-color: hsl(23, 69%, 73%);
-    --record-bar-segment-border-color: hsl(11, 54%, 62%);
+    background-color: hsl(0, 0%, 70%);
+    --record-bar-segment-border-color: hsl(0, 0%, 55%);
 }
 
 .timeline-record-bar.timeline-record-type-media > .segment {

@@ -1022,7 +1022,7 @@ WI.TimelineOverview = class TimelineOverview extends WI.View
 
     _handleTimelineCapturingStateChanged(event)
     {
-        switch (WI.timelineManager.capturingState) {
+        switch (event.data.capturingState) {
         case WI.TimelineManager.CapturingState.Active:
             this._editInstrumentsButton.enabled = false;
             this._stopEditingInstruments();

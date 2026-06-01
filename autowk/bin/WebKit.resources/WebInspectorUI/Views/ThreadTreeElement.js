@@ -40,6 +40,13 @@ WI.ThreadTreeElement = class ThreadTreeElement extends WI.GeneralTreeElement
 
     refresh()
     {
+        let treeOutline = this.treeOutline;
+        if (treeOutline) {
+            let selectedTreeElement = treeOutline.selectedTreeElement;
+            if (selectedTreeElement && selectedTreeElement.parent === this)
+                selectedTreeElement.deselect(true);
+        }
+
         this.removeChildren();
 
         this._updateStatus();
@@ -74,10 +81,10 @@ WI.ThreadTreeElement = class ThreadTreeElement extends WI.GeneralTreeElement
     populateContextMenu(contextMenu, event)
     {
         let targetData = WI.debuggerManager.dataForTarget(this._target);
-
-        contextMenu.appendItem(WI.UIString("Resume Thread"), () => {
-            WI.debuggerManager.continueUntilNextRunLoop(this._target);
-        }, !targetData.paused);
+        if (targetData)
+            contextMenu.appendItem(WI.UIString("Resume Thread"), () => {
+                WI.debuggerManager.continueUntilNextRunLoop(this._target);
+            }, !targetData.paused);
 
         super.populateContextMenu(contextMenu, event);
     }
@@ -92,7 +99,7 @@ WI.ThreadTreeElement = class ThreadTreeElement extends WI.GeneralTreeElement
             return;
 
         let targetData = WI.debuggerManager.dataForTarget(this._target);
-        if (!targetData.paused)
+        if (!targetData?.paused)
             return;
 
         if (!this._statusButton) {

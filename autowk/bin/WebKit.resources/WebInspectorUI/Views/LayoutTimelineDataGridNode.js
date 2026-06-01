@@ -44,7 +44,7 @@ WI.LayoutTimelineDataGridNode = class LayoutTimelineDataGridNode extends WI.Time
         this._cachedData.name = this.displayName();
         this._cachedData.width = this.record.width;
         this._cachedData.height = this.record.height;
-        this._cachedData.area = this.record.width * this.record.height;
+        this._cachedData.area = this.record.area;
         this._cachedData.startTime = this.record.startTime - (this.graphDataSource ? this.graphDataSource.zeroTime : 0);
         this._cachedData.totalTime = this.record.duration;
         this._cachedData.initiator = this.record.initiatorCallFrame;
@@ -60,6 +60,20 @@ WI.LayoutTimelineDataGridNode = class LayoutTimelineDataGridNode extends WI.Time
         switch (columnIdentifier) {
         case "name":
             cell.classList.add(...this.iconClassNames());
+
+            if (this.record.eventType == WI.LayoutTimelineRecord.EventType.Layout || this.record.eventType == WI.LayoutTimelineRecord.EventType.LargestContentfulPaint) {
+                let fragment = document.createDocumentFragment();
+                fragment.append(value);
+
+                if (this.record.domNode) {
+                    let goToArrow = fragment.appendChild(WI.createGoToArrowButton());
+                    goToArrow.addEventListener("click", (event) => {
+                        WI.showMainFrameDOMTree(this.record.domNode, {ignoreSearchTab: true});
+                    });
+                }
+
+                return fragment;
+            }
             return value;
 
         case "width":

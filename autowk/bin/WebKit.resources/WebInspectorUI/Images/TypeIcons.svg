@@ -330,8 +330,8 @@
     <g id="Exception-light" class="light blue"><use href="#box"/><use href="#Ex"/></g>
     <g id="Function-dark" class="dark green"><use href="#box"/><use href="#f"/></g>
     <g id="Function-light" class="light green"><use href="#box"/><use href="#f"/></g>
-    <g id="HeapSnapshot-dark" class="dark beige"><use href="#box"/><use href="#S"/></g>
-    <g id="HeapSnapshot-light" class="light beige"><use href="#box"/><use href="#S"/></g>
+    <g id="HeapSnapshot-dark" class="dark grey"><use href="#box"/><use href="#S"/></g>
+    <g id="HeapSnapshot-light" class="light grey"><use href="#box"/><use href="#S"/></g>
     <g id="HeapSnapshot-selected" class="selected"><use href="#box"/><use href="#S"/></g>
     <g id="HeapSnapshotDiff-dark" class="dark green"><use href="#box"/><use href="#D"/></g>
     <g id="HeapSnapshotDiff-light" class="light green"><use href="#box"/><use href="#D"/></g>
@@ -349,6 +349,8 @@
     <g id="Object-light" class="light yellow"><use href="#box"/><use href="#O"/></g>
     <g id="PausedBreakpoint-dark" class="dark red"><use href="#box"/><use href="#P"/></g>
     <g id="PausedBreakpoint-light" class="light red"><use href="#box"/><use href="#P"/></g>
+    <g id="PerformanceEntry-dark" class="dark teal"><use href="#box"/><use href="#P"/></g>
+    <g id="PerformanceEntry-light" class="light teal"><use href="#box"/><use href="#P"/></g>
     <g id="Program-dark" class="dark purple"><use href="#box"/><use href="#S"/></g>
     <g id="Program-light" class="light purple"><use href="#box"/><use href="#S"/></g>
     <g id="PseudoElement-dark" class="dark red"><use href="#box"/><use href="#P"/></g>
@@ -403,8 +405,8 @@
     <g id="TimelineRecordCSSTransition-light" class="light green"><use href="#box"/><use href="#T"/></g>
     <g id="TimelineRecordEvent-dark" class="dark purple"><use href="#box"/><use href="#E"/></g>
     <g id="TimelineRecordEvent-light" class="light purple"><use href="#box"/><use href="#E"/></g>
-    <g id="TimelineRecordGarbageCollection-dark" class="dark beige"><use href="#box"/><use href="#C"/></g>
-    <g id="TimelineRecordGarbageCollection-light" class="light beige"><use href="#box"/><use href="#C"/></g>
+    <g id="TimelineRecordGarbageCollection-dark" class="dark grey"><use href="#box"/><use href="#C"/></g>
+    <g id="TimelineRecordGarbageCollection-light" class="light grey"><use href="#box"/><use href="#C"/></g>
     <g id="TimelineRecordLayout-dark" class="dark red"><use href="#box"/><use href="#L"/></g>
     <g id="TimelineRecordLayout-light" class="light red"><use href="#box"/><use href="#L"/></g>
     <g id="TimelineRecordMediaElement-dark" class="dark green"><use href="#box"/><use href="#E"/></g>
@@ -415,8 +417,8 @@
     <g id="TimelineRecordProbeSampled-light" class="light purple"><use href="#box"/><use href="#P"/></g>
     <g id="TimelineRecordScriptEvaluated-dark" class="dark purple"><use href="#box"/><use href="#S"/></g>
     <g id="TimelineRecordScriptEvaluated-light" class="light purple"><use href="#box"/><use href="#S"/></g>
-    <g id="TimelineRecordStyle-dark" class="dark red"><use href="#box"/><use href="#S"/></g>
-    <g id="TimelineRecordStyle-light" class="light red"><use href="#box"/><use href="#S"/></g>
+    <g id="TimelineRecordStyle-dark" class="dark beige"><use href="#box"/><use href="#S"/></g>
+    <g id="TimelineRecordStyle-light" class="light beige"><use href="#box"/><use href="#S"/></g>
     <g id="TimelineRecordTimer-dark" class="dark purple"><use href="#box"/><use href="#T"/></g>
     <g id="TimelineRecordTimer-light" class="light purple"><use href="#box"/><use href="#T"/></g>
     <g id="TypeBigInt-dark" class="dark cyan"><use href="#box"/><use href="#B"/></g>

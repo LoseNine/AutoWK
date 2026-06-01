@@ -159,6 +159,14 @@ WI.TargetManager = class TargetManager extends WI.Object
         if (!target)
             return;
 
+        // FIXME: https://bugs.webkit.org/show_bug.cgi?id=312386 SI Move cleanup of children workers to backend
+        if (target.type === WI.TargetType.Frame) {
+            for (let workerTarget of this.workerTargets) {
+                if (workerTarget.parentTarget === target)
+                    WI.workerManager.workerTerminated(workerTarget.identifier);
+            }
+        }
+
         this._checkAndHandlePageTargetTermination(target);
         this.removeTarget(target);
     }
@@ -191,6 +199,9 @@ WI.TargetManager = class TargetManager extends WI.Object
         case "serviceworker": // COMPATIBILITY (iOS 13): "serviceworker" was renamed to "service-worker".
         case InspectorBackend.Enum.Target.TargetInfoType.ServiceWorker:
             return new WI.WorkerTarget(parentTarget, targetId, WI.UIString("ServiceWorker"), connection, {isPaused});
+        case InspectorBackend.Enum.Target.TargetInfoType.Frame:
+            // FIXME: <https://webkit.org/b/298977> Consider setting a more meaningful name for the frame target.
+            return new WI.FrameTarget(parentTarget, targetId, WI.UIString("Frame"), connection, {isProvisional, isPaused});
         }
 
         throw "Unknown Target type: " + type;

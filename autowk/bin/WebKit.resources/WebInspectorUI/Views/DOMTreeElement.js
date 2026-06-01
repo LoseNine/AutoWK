@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2007, 2008, 2013, 2015, 2016 Apple Inc.  All rights reserved.
+ * Copyright (C) 2007, 2008, 2013, 2015, 2016 Apple Inc. All rights reserved.
  * Copyright (C) 2008 Matt Lilek <webkit@mattlilek.com>
  * Copyright (C) 2009 Joseph Pecoraro
  *
@@ -30,15 +30,12 @@
 
 WI.DOMTreeElement = class DOMTreeElement extends WI.TreeElement
 {
-    constructor(node, elementCloseTag, {showBadges} = {})
+    constructor(node, {showBadges, isElementCloseTag} = {})
     {
         super("", node);
 
-        this._elementCloseTag = elementCloseTag;
-        this.hasChildren = !elementCloseTag && this._hasVisibleChildren();
-
-        if (this.representedObject.nodeType() === Node.ELEMENT_NODE && !elementCloseTag)
-            this._canAddAttributes = true;
+        this._isElementCloseTag = !!isElementCloseTag;
+        this.hasChildren = !this._isElementCloseTag && this._hasVisibleChildren();
         this._searchQuery = null;
         this._expandedChildrenLimit = WI.DOMTreeElement.InitialChildrenLimit;
         this._breakpointStatus = WI.DOMTreeElement.BreakpointStatus.None;
@@ -75,9 +72,36 @@ WI.DOMTreeElement = class DOMTreeElement extends WI.TreeElement
         }
     }
 
+    static badgeTypeForLayoutFlag(layoutFlag)
+    {
+        switch (layoutFlag) {
+        case WI.DOMNode.LayoutFlag.Scrollable:
+            return WI.DOMTreeElement.BadgeType.Scrollable;
+        case WI.DOMNode.LayoutFlag.Flex:
+            return WI.DOMTreeElement.BadgeType.Flex;
+        case WI.DOMNode.LayoutFlag.Grid:
+            return WI.DOMTreeElement.BadgeType.Grid;
+        case WI.DOMNode.LayoutFlag.Subgrid:
+            return WI.DOMTreeElement.BadgeType.Subgrid;
+        case WI.DOMNode.LayoutFlag.GridLanes:
+            return WI.DOMTreeElement.BadgeType.GridLanes;
+        case WI.DOMNode.LayoutFlag.Event:
+            return WI.DOMTreeElement.BadgeType.Event;
+        case WI.DOMNode.LayoutFlag.SlotAssigned:
+            return WI.DOMTreeElement.BadgeType.SlotAssigned;
+        case WI.DOMNode.LayoutFlag.SlotFilled:
+            return WI.DOMTreeElement.BadgeType.SlotFilled;
+        case WI.DOMNode.LayoutFlag.Rendered:
+            return null;
+        }
+
+        console.assert(false, "not reached", layoutFlag);
+    }
+
     // Public
 
     get statusImageElement() { return this._statusImageElement; }
+    get isElementCloseTag() { return this._isElementCloseTag; }
 
     get hasBreakpoint()
     {
@@ -134,11 +158,6 @@ WI.DOMTreeElement = class DOMTreeElement extends WI.TreeElement
 
         this._shouldHighlightAfterReveal = true;
         this.reveal();
-    }
-
-    isCloseTag()
-    {
-        return this._elementCloseTag;
     }
 
     highlightSearchResults(searchQuery)
@@ -278,7 +297,7 @@ WI.DOMTreeElement = class DOMTreeElement extends WI.TreeElement
     get expandedChildCount()
     {
         var count = this.children.length;
-        if (count && this.children[count - 1]._elementCloseTag)
+        if (count && this.children[count - 1].isElementCloseTag)
             count--;
         if (count && this.children[count - 1].expandAllButton)
             count--;
@@ -315,8 +334,8 @@ WI.DOMTreeElement = class DOMTreeElement extends WI.TreeElement
 
     showChildNode(node)
     {
-        console.assert(!this._elementCloseTag);
-        if (this._elementCloseTag)
+        console.assert(!this._isElementCloseTag);
+        if (this._isElementCloseTag)
             return null;
 
         var index = this._visibleChildren().indexOf(node);
@@ -461,7 +480,7 @@ WI.DOMTreeElement = class DOMTreeElement extends WI.TreeElement
 
     onpopulate()
     {
-        if (this.children.length || !this._hasVisibleChildren() || this._elementCloseTag)
+        if (this.children.length || !this._hasVisibleChildren() || this._isElementCloseTag)
             return;
 
         this.updateChildren();
@@ -474,15 +493,15 @@ WI.DOMTreeElement = class DOMTreeElement extends WI.TreeElement
 
     updateChildren(fullRefresh)
     {
-        if (this._elementCloseTag)
+        if (this._isElementCloseTag)
             return;
 
         this.representedObject.getChildNodes(this._updateChildren.bind(this, fullRefresh));
     }
 
-    insertChildElement(child, index, closingTag)
+    insertChildElement(child, index, {isElementCloseTag} = {})
     {
-        var newElement = new WI.DOMTreeElement(child, closingTag, {showBadges: this._showBadges});
+        var newElement = new WI.DOMTreeElement(child, {showBadges: this._showBadges, isElementCloseTag});
         newElement.selectable = this.treeOutline.selectable;
         this.insertChild(newElement, index);
         return newElement;
@@ -583,8 +602,8 @@ WI.DOMTreeElement = class DOMTreeElement extends WI.TreeElement
 
         // Insert closing tag tree element.
         var lastChild = this.children.lastValue;
-        if (node.nodeType() === Node.ELEMENT_NODE && (!lastChild || !lastChild._elementCloseTag))
-            this._closeTagTreeElement = this.insertChildElement(this.representedObject, this.children.length, true);
+        if (node.nodeType() === Node.ELEMENT_NODE && (!lastChild || !lastChild.isElementCloseTag))
+            this._closeTagTreeElement = this.insertChildElement(this.representedObject, this.children.length, {isElementCloseTag: true});
 
         // We want to restore the original selection and tree scroll position after a full refresh, if possible.
         if (fullRefresh && elementToSelect) {
@@ -665,7 +684,7 @@ WI.DOMTreeElement = class DOMTreeElement extends WI.TreeElement
 
     onexpand()
     {
-        if (this._elementCloseTag)
+        if (this._isElementCloseTag)
             return;
 
         if (!this.listItemElement)
@@ -681,7 +700,7 @@ WI.DOMTreeElement = class DOMTreeElement extends WI.TreeElement
 
     oncollapse()
     {
-        if (this._elementCloseTag)
+        if (this._isElementCloseTag)
             return;
 
         this.updateTitle();
@@ -746,7 +765,7 @@ WI.DOMTreeElement = class DOMTreeElement extends WI.TreeElement
         if (!this.editable)
             return false;
 
-        if (this._editing || this._elementCloseTag)
+        if (this._editing || this._isElementCloseTag)
             return;
 
         if (this._startEditingTarget(event.target))
@@ -820,38 +839,40 @@ WI.DOMTreeElement = class DOMTreeElement extends WI.TreeElement
         let isEditableNode = this.representedObject.nodeType() === Node.ELEMENT_NODE && this.editable;
         let isNonShadowEditable = isEditableNode && (!this.representedObject.isInUserAgentShadowTree() || WI.DOMManager.supportsEditingUserAgentShadowTrees());
         let alreadyEditingHTML = this._htmlEditElement && WI.isBeingEdited(this._htmlEditElement);
+        let openTagTreeElement = this.isElementCloseTag ? this.treeOutline.findTreeElement(this.representedObject) : this;
+        let selectedTreeElements = this.treeOutline.selectedTreeElements;
 
         if (isEditableNode) {
             if (!DOMTreeElement.ForbiddenClosingTagElements.has(this.representedObject.nodeNameInCorrectCase())) {
-                subMenus.add.appendItem(WI.UIString("Child", "A submenu item of 'Add' to append DOM nodes to the selected DOM node"), () => {
-                    this._addHTML();
+                subMenus.add?.appendItem(WI.UIString("Child", "A submenu item of 'Add' to append DOM nodes to the selected DOM node"), () => {
+                    openTagTreeElement._addHTML();
                 }, alreadyEditingHTML);
             }
 
-            subMenus.add.appendItem(WI.UIString("Previous Sibling", "A submenu item of 'Add' to add DOM nodes before the selected DOM node"), () => {
-                this._addPreviousSibling();
+            subMenus.add?.appendItem(WI.UIString("Previous Sibling", "A submenu item of 'Add' to add DOM nodes before the selected DOM node"), () => {
+                openTagTreeElement._addPreviousSibling();
             }, alreadyEditingHTML);
 
-            subMenus.add.appendItem(WI.UIString("Next Sibling", "A submenu item of 'Add' to add DOM nodes after the selected DOM node"), () => {
-                this._addNextSibling();
+            subMenus.add?.appendItem(WI.UIString("Next Sibling", "A submenu item of 'Add' to add DOM nodes after the selected DOM node"), () => {
+                openTagTreeElement._addNextSibling();
             }, alreadyEditingHTML);
         }
 
         if (isNonShadowEditable) {
-            subMenus.add.appendItem(WI.UIString("Attribute"), () => {
-                this._addNewAttribute();
+            subMenus.add?.appendItem(WI.UIString("Attribute"), () => {
+                openTagTreeElement._addNewAttribute();
             });
         }
 
         if (this.editable) {
-            subMenus.edit.appendItem(WI.UIString("HTML"), () => {
+            subMenus.edit?.appendItem(WI.UIString("HTML"), () => {
                 this._editAsHTML();
             }, alreadyEditingHTML);
         }
 
         if (isNonShadowEditable) {
             if (attributeName) {
-                subMenus.edit.appendItem(WI.UIString("Attribute"), () => {
+                subMenus.edit?.appendItem(WI.UIString("Attribute"), () => {
                     this._startEditingAttribute(attributeNode, event.target);
                 }, WI.isBeingEdited(attributeNode));
             }
@@ -859,61 +880,64 @@ WI.DOMTreeElement = class DOMTreeElement extends WI.TreeElement
             if (InspectorBackend.hasCommand("DOM.setNodeName") && !DOMTreeElement.UneditableTagNames.has(this.representedObject.nodeNameInCorrectCase())) {
                 let tagNameNode = event.target.closest(".html-tag-name");
 
-                subMenus.edit.appendItem(WI.UIString("Tag", "A submenu item of 'Edit' to change DOM element's tag name"), () => {
+                subMenus.edit?.appendItem(WI.UIString("Tag", "A submenu item of 'Edit' to change DOM element's tag name"), () => {
                     this._startEditingTagName(tagNameNode);
                 }, WI.isBeingEdited(tagNameNode));
             }
         }
 
         if (textNode && this.editable) {
-            subMenus.edit.appendItem(WI.UIString("Text"), () => {
+            subMenus.edit?.appendItem(WI.UIString("Text"), () => {
                 this._startEditingTextNode(textNode);
             }, WI.isBeingEdited(textNode));
         }
 
         if (!this.representedObject.destroyed && !this.representedObject.isPseudoElement()) {
             subMenus.copy.appendItem(WI.UIString("HTML"), () => {
-                this.representedObject.getOuterHTML()
-                .then((outerHTML) => {
-                    InspectorFrontendHost.copyText(outerHTML);
+                this._copyHTMLOfSelectedDOMNodes();
+            });
+
+            subMenus.copy.appendItem(WI.UIString("HTML (Formatted)"), () => {
+                this._copyHTMLOfSelectedDOMNodes({formatted: true});
+            });
+        }
+
+        if (selectedTreeElements.length === 1) {
+            if (attributeName) {
+                subMenus.copy.appendItem(WI.UIString("Attribute"), () => {
+                    let text = attributeName;
+                    let attributeValue = this.representedObject.getAttribute(attributeName);
+                    if (attributeValue)
+                        text += "=\"" + attributeValue.replace(/"/g, "\\\"") + "\"";
+                    InspectorFrontendHost.copyText(text);
                 });
-            });
-        }
+            }
 
-        if (attributeName) {
-            subMenus.copy.appendItem(WI.UIString("Attribute"), () => {
-                let text = attributeName;
-                let attributeValue = this.representedObject.getAttribute(attributeName);
-                if (attributeValue)
-                    text += "=\"" + attributeValue.replace(/"/g, "\\\"") + "\"";
-                InspectorFrontendHost.copyText(text);
-            });
-        }
+            if (textNode?.textContent.length) {
+                subMenus.copy.appendItem(WI.UIString("Text"), () => {
+                    InspectorFrontendHost.copyText(textNode.textContent);
+                });
+            }
 
-        if (textNode && textNode.textContent.length) {
-            subMenus.copy.appendItem(WI.UIString("Text"), () => {
-                InspectorFrontendHost.copyText(textNode.textContent);
-            });
-        }
+            if (this.editable) {
+                subMenus.delete.appendItem(WI.UIString("Node"), () => {
+                    this.remove();
+                });
+            }
 
-        if (this.editable && (!this.selected || this.treeOutline.selectedTreeElements.length === 1)) {
-            subMenus.delete.appendItem(WI.UIString("Node"), () => {
-                this.remove();
-            });
-        }
-
-        if (attributeName && isNonShadowEditable) {
-            subMenus.delete.appendItem(WI.UIString("Attribute"), () => {
-                this.representedObject.removeAttribute(attributeName);
-            });
+            if (attributeName && isNonShadowEditable) {
+                subMenus.delete.appendItem(WI.UIString("Attribute"), () => {
+                    this.representedObject.removeAttribute(attributeName);
+                });
+            }
         }
 
         for (let subMenu of Object.values(subMenus))
             contextMenu.pushItem(subMenu);
 
         if (this.treeOutline.editable) {
-            if (this.selected && this.treeOutline && this.treeOutline.selectedTreeElements.length > 1) {
-                let forceHidden = !this.treeOutline.selectedTreeElements.every((treeElement) => treeElement.isNodeHidden);
+            if (this.selected && selectedTreeElements.length > 1) {
+                let forceHidden = !selectedTreeElements.every((treeElement) => treeElement.isNodeHidden);
                 let label = forceHidden ? WI.UIString("Hide Elements") : WI.UIString("Show Elements");
                 contextMenu.appendItem(label, () => {
                     this.treeOutline.toggleSelectedElementsVisibility(forceHidden);
@@ -926,6 +950,27 @@ WI.DOMTreeElement = class DOMTreeElement extends WI.TreeElement
         }
     }
 
+    _copyHTMLOfSelectedDOMNodes({formatted} = {})
+    {
+        Promise.all(this.treeOutline.selectedTreeElements.map(async function(treeElement) {
+            let outerHTML = await treeElement.representedObject.getOuterHTML();
+            if (formatted) {
+                let workerProxy = WI.FormatterWorkerProxy.singleton();
+                const includeSourceMapData = false;
+                let {formattedText} = await workerProxy.formatHTML(outerHTML, WI.indentString(), includeSourceMapData);
+                outerHTML = formattedText || "";
+            }
+
+            return outerHTML;
+        }))
+        .then(function(outerHTMLs) {
+            InspectorFrontendHost.copyText(outerHTMLs.join("\n"));
+        })
+        .catch(function(error) {
+            WI.reportInternalError(error);
+        });
+    }
+
     _startEditing()
     {
         if (this.treeOutline.selectedDOMNode() !== this.representedObject)
@@ -936,7 +981,7 @@ WI.DOMTreeElement = class DOMTreeElement extends WI.TreeElement
 
         var listItem = this.listItemElement;
 
-        if (this._canAddAttributes) {
+        if (this.representedObject.nodeType() === Node.ELEMENT_NODE && !this._isElementCloseTag) {
             var attribute = listItem.getElementsByClassName("html-attribute")[0];
             if (attribute)
                 return this._startEditingAttribute(attribute, attribute.getElementsByClassName("html-attribute-value")[0]);
@@ -1408,8 +1453,10 @@ WI.DOMTreeElement = class DOMTreeElement extends WI.TreeElement
         let attrNameElement = attrSpanElement.createChild("span", "html-attribute-name");
         attrNameElement.textContent = name;
         let attrValueElement = null;
+
+        let quote = value.includes('"') ? "'" : "\"";
         if (hasText)
-            attrSpanElement.append("=\u200B\"");
+            attrSpanElement.append("=\u200B", quote);
 
         if (name === "src" || /\bhref\b/.test(name)) {
             let baseURL = node.frame ? node.frame.url : null;
@@ -1466,7 +1513,7 @@ WI.DOMTreeElement = class DOMTreeElement extends WI.TreeElement
         }
 
         if (hasText)
-            attrSpanElement.append("\"");
+            attrSpanElement.append(quote);
 
         this._createModifiedAnimation(name, value, hasText ? attrValueElement : attrNameElement);
 
@@ -1548,7 +1595,7 @@ WI.DOMTreeElement = class DOMTreeElement extends WI.TreeElement
                 }
 
                 var tagName = node.nodeNameInCorrectCase();
-                if (this._elementCloseTag) {
+                if (this._isElementCloseTag) {
                     this._buildTagDOM({
                         parentElement: info.titleDOM,
                         tagName,
@@ -1956,7 +2003,7 @@ WI.DOMTreeElement = class DOMTreeElement extends WI.TreeElement
 
     _updatePseudoClassIndicator()
     {
-        if (!this.listItemElement || this._elementCloseTag)
+        if (!this.listItemElement || this._isElementCloseTag)
             return;
 
         if (this.representedObject.enabledPseudoClasses.length) {
@@ -2070,7 +2117,7 @@ WI.DOMTreeElement = class DOMTreeElement extends WI.TreeElement
     {
         console.assert(!this._elementForBadgeType.has(badgeType), badgeType);
 
-        if (!badgeType || !WI.settings.enabledDOMTreeBadgeTypes.value.includes(badgeType))
+        if (!WI.settings.enabledDOMTreeBadgeTypes.value.includes(badgeType))
             return;
 
         let text = "";
@@ -2084,13 +2131,33 @@ WI.DOMTreeElement = class DOMTreeElement extends WI.TreeElement
 
         case WI.DOMTreeElement.BadgeType.Flex:
             console.assert(!this._elementForBadgeType.has(WI.DOMTreeElement.BadgeType.Grid));
+            console.assert(!this._elementForBadgeType.has(WI.DOMTreeElement.BadgeType.Subgrid));
+            console.assert(!this._elementForBadgeType.has(WI.DOMTreeElement.BadgeType.GridLanes));
             text = WI.unlocalizedString("flex");
             handleClick = this._layoutBadgeClicked.bind(this);
             break;
 
         case WI.DOMTreeElement.BadgeType.Grid:
             console.assert(!this._elementForBadgeType.has(WI.DOMTreeElement.BadgeType.Flex));
+            console.assert(!this._elementForBadgeType.has(WI.DOMTreeElement.BadgeType.Subgrid));
+            console.assert(!this._elementForBadgeType.has(WI.DOMTreeElement.BadgeType.GridLanes));
             text = WI.unlocalizedString("grid");
+            handleClick = this._layoutBadgeClicked.bind(this);
+            break;
+
+        case WI.DOMTreeElement.BadgeType.Subgrid:
+            console.assert(!this._elementForBadgeType.has(WI.DOMTreeElement.BadgeType.Flex));
+            console.assert(!this._elementForBadgeType.has(WI.DOMTreeElement.BadgeType.Grid));
+            console.assert(!this._elementForBadgeType.has(WI.DOMTreeElement.BadgeType.GridLanes));
+            text = WI.unlocalizedString("subgrid");
+            handleClick = this._layoutBadgeClicked.bind(this);
+            break;
+
+        case WI.DOMTreeElement.BadgeType.GridLanes:
+            console.assert(!this._elementForBadgeType.has(WI.DOMTreeElement.BadgeType.Flex));
+            console.assert(!this._elementForBadgeType.has(WI.DOMTreeElement.BadgeType.Grid));
+            console.assert(!this._elementForBadgeType.has(WI.DOMTreeElement.BadgeType.Subgrid));
+            text = WI.unlocalizedString("grid-lanes");
             handleClick = this._layoutBadgeClicked.bind(this);
             break;
 
@@ -2122,7 +2189,7 @@ WI.DOMTreeElement = class DOMTreeElement extends WI.TreeElement
 
     _createBadges()
     {
-        if (!this._showBadges || !this.listItemElement || this._elementCloseTag)
+        if (!this._showBadges || !this.listItemElement || this._isElementCloseTag)
             return;
 
         let hadBadge = this._elementForBadgeType.size;
@@ -2132,31 +2199,9 @@ WI.DOMTreeElement = class DOMTreeElement extends WI.TreeElement
         this._elementForBadgeType.clear();
 
         for (let layoutFlag of this.representedObject.layoutFlags) {
-            switch (layoutFlag) {
-            case WI.DOMNode.LayoutFlag.Scrollable:
-                this._createBadge(WI.DOMTreeElement.BadgeType.Scrollable);
-                break;
-
-            case WI.DOMNode.LayoutFlag.Grid:
-                this._createBadge(WI.DOMTreeElement.BadgeType.Grid);
-                break;
-
-            case WI.DOMNode.LayoutFlag.Flex:
-                this._createBadge(WI.DOMTreeElement.BadgeType.Flex);
-                break;
-
-            case WI.DOMNode.LayoutFlag.Event:
-                this._createBadge(WI.DOMTreeElement.BadgeType.Event);
-                break;
-
-            case WI.DOMNode.LayoutFlag.SlotAssigned:
-                this._createBadge(WI.DOMTreeElement.BadgeType.SlotAssigned);
-                break;
-
-            case WI.DOMNode.LayoutFlag.SlotFilled:
-                this._createBadge(WI.DOMTreeElement.BadgeType.SlotFilled);
-                break;
-            }
+            let badgeType = WI.DOMTreeElement.badgeTypeForLayoutFlag(layoutFlag);
+            if (badgeType)
+                this._createBadge(badgeType);
         }
 
         if (!this._elementForBadgeType.size) {
@@ -2308,6 +2353,8 @@ WI.DOMTreeElement = class DOMTreeElement extends WI.TreeElement
         for (let [badgeType, badgeElement] of this._elementForBadgeType) {
             switch (badgeType) {
             case WI.DOMTreeElement.BadgeType.Grid:
+            case WI.DOMTreeElement.BadgeType.Subgrid:
+            case WI.DOMTreeElement.BadgeType.GridLanes:
             case WI.DOMTreeElement.BadgeType.Flex: {
                 let layoutOverlayShowing = this.representedObject.layoutOverlayShowing;
                 badgeElement.classList.toggle("activated", layoutOverlayShowing);
@@ -2381,6 +2428,8 @@ WI.DOMTreeElement.BadgeType = {
     Scrollable: "scrollable",
     Flex: "flex",
     Grid: "grid",
+    Subgrid: "subgrid",
+    GridLanes: "grid-lanes",
     Event: "event",
     SlotAssigned: "slot-assigned",
     SlotFilled: "slot-filled",

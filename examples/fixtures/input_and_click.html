@@ -1,0 +1,20 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>AutoWK Input Fixture</title>
+</head>
+<body>
+  <main>
+    <label for="example-input">Example input</label>
+    <input id="example-input" name="example-input" value="initial value">
+    <button id="example-button" type="button">Click me</button>
+    <p id="result">Not clicked</p>
+  </main>
+  <script>
+    document.querySelector("#example-button").addEventListener("click", () => {
+      document.querySelector("#result").textContent = "Clicked";
+    });
+  </script>
+</body>
+</html>
